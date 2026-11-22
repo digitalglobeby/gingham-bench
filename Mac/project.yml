@@ -1,0 +1,72 @@
+# The Mac app of the open Gingham benchmark. `xcodegen` makes GinghamBench.xcodeproj from this
+# file (the project is committed too, so it opens without XcodeGen).
+name: GinghamBench
+options:
+  bundleIdPrefix: by.digitalglobe
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+packages:
+  # Gingham as customers get it: the binary package, never its source.
+  Gingham:
+    url: https://github.com/digitalglobeby/Gingham
+    from: "1.1.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    # Gingham's binary is for Apple silicon only.
+    ARCHS: arm64
+    DEVELOPMENT_TEAM: CX4XTQ23ND
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: Apple Development
+    ENABLE_HARDENED_RUNTIME: YES
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEAD_CODE_STRIPPING: YES
+targets:
+  GinghamBench:
+    type: application
+    platform: macOS
+    sources:
+      - path: GinghamBench
+        excludes:
+          - Info.plist
+      - path: ../Shared/BenchKey.swift
+        group: Shared
+    dependencies:
+      - package: Gingham
+        product: Gingham
+    info:
+      path: GinghamBench/Info.plist
+      properties:
+        CFBundleDisplayName: Gingham Bench
+        CFBundleName: Gingham Bench
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSHumanReadableCopyright: Copyright © 2026 Dalis Polikhranidi. MIT License.
+        NSPrincipalClass: NSApplication
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
+    settings:
+      base:
+        PRODUCT_NAME: Gingham Bench
+        PRODUCT_BUNDLE_IDENTIFIER: by.digitalglobe.gingham-bench
+        INFOPLIST_FILE: GinghamBench/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+schemes:
+  GinghamBench:
+    build:
+      targets:
+        GinghamBench: all
+    run:
+      config: Release
+      commandLineArguments:
+        "-ApplePersistenceIgnoreState YES": true
+    archive:
+      config: Release

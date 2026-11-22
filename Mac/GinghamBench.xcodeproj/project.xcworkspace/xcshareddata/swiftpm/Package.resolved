@@ -1,0 +1,15 @@
+{
+  "originHash" : "ad594216a01d9539b7f65a4254778a824987a58b78a302363cf80d30f6f9d4b7",
+  "pins" : [
+    {
+      "identity" : "gingham",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/digitalglobeby/Gingham",
+      "state" : {
+        "revision" : "7c2a83431e91ef473afdcc3d1c493fff4352944b",
+        "version" : "1.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}

@@ -1,0 +1,67 @@
+# Builds the Mac bench (Mac/) with the oldest and newest Xcode 26 releases, the first 26.4
+# release and the newest Xcode, from the public Gingham binary package. No signing: CI can't
+# measure (the bench needs a screen and a quiet Mac). Runs when Mac/ or Shared/ change on main,
+# on pull requests, and by hand ("Run workflow").
+name: Mac bench
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Mac/**"
+      - "Shared/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    paths:
+      - "Mac/**"
+      - "Shared/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Xcode ${{ matrix.xcode }}
+    runs-on: macos-26
+    # Xcode 26.0–26.3 can't import Gingham 1.1.0's binary interface (fixed in 1.1.1): their jobs
+    # may fail without failing the workflow.
+    continue-on-error: ${{ matrix.may-fail }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - xcode: "26.0.1"
+            may-fail: true
+          - xcode: "26.3"
+            may-fail: true
+          - xcode: "26.4.1"
+            may-fail: false
+          - xcode: latest-stable
+            may-fail: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode ${{ matrix.xcode }}
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode }}
+      - name: Versions
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Resolve the Gingham package
+        run: xcodebuild -resolvePackageDependencies -project Mac/GinghamBench.xcodeproj -scheme GinghamBench
+      - name: Build (Release, Apple silicon)
+        run: |
+          xcodebuild build -project Mac/GinghamBench.xcodeproj -scheme GinghamBench \
+            -configuration Release -destination "generic/platform=macOS" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO -quiet
+      - name: Formatting matches Gingham's
+        # (Runs the built app without a window; informative only.)
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/DerivedData/Build/Products/Release/Gingham Bench.app/Contents/MacOS/Gingham Bench" --check-formats

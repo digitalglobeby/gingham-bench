@@ -1,0 +1,22 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+.build/
+*.xcresult
+
+# Swift Package Manager (the resolved versions are committed in the project)
+.swiftpm/
+
+# Results of local runs (results/README.md and published results are added by hand)
+results/*.jsonl
+results/*.md
+!results/README.md
+
+# Release script settings and output (never the App Store Connect key)
+Scripts/release.local.sh
+release/
+
+# macOS
+.DS_Store
