@@ -106,7 +106,11 @@ screen refresh the main thread applies everything that came since the last one (
 the 24-hour tickers of every pair (`!ticker_1d@arr`) and every pair's best bid and ask
 (`<pair>@bookTicker`, over a few connections of 1,024 streams); or the order books of BTC, ETH,
 SOL, BNB, XRP and DOGE against USDT (`<pair>@depth@100ms` on a REST snapshot of 5,000 levels a
-side, kept in step as Binance's documentation describes). **Numbers vary** with the market, the
+side, kept in step as Binance's documentation describes). Sorted by pair and then price, highest
+first, the rows in view are the top of the first pair's asks, 5,000 levels away from the market:
+they hardly ever change, so this scenario shows about 0 screen updates for every engine, and what
+it measures is the cost of keeping 58,000 levels sorted while the books change (main thread busy,
+data age, updates applied). **Numbers vary** with the market, the
 time of day and the network; compare engines within one session. Data doesn't arrive at every
 screen refresh, so even an engine that keeps up shows fewer updates a second than the refresh
 rate. Binance allows 6,000 request weight a minute per IP and bans IPs that go over, so the runs
@@ -329,8 +333,9 @@ it. Each callback applies the changes that came since the last one (above). Per 
   still, so the commits are the table's. Instruments attaches to the run's process
   (`xctrace record --attach`): launched by `xctrace --launch`, a binary inside an app bundle goes
   through Launch Services, which may start another copy of the app with the same bundle id. Each
-  trace (10 seconds at most) is read right after it's recorded and deleted, one on the disk at a
-  time, in `~/Library/Caches/gingham-bench-traces`; the pass stops with less than 40 GB free.
+  trace (10 seconds at most) is read right after it's recorded and deleted, with the raw kernel
+  trace Instruments leaves behind in the temporary folder (`instruments*.ktrace`, 1–2 GB each), one
+  on the disk at a time, in `~/Library/Caches/gingham-bench-traces`; the pass stops with less than 40 GB free.
   What it showed (one run each, a busy Mac): Gingham's GPU frames the window server read equal its
   own presented frames (114.2 and 114.2 on `live-trades`, 119.2 and 119.2 on `order-book`); for the
   AppKit engines the display frames with new content equal the updates applied when every update
@@ -367,8 +372,10 @@ it. Each callback applies the changes that came since the last one (above). Per 
   shown, nothing changing; it composites every app's layers, so this is Mac-wide), and **the two
   together**: the work lands in different places, AppKit's drawing composited under the window
   server, Gingham's drawn in the process. Only increases between samples count (a GPU client that
-  closes takes its time with it). Also **energy** as the kernel accounts it to the process (`TASK_POWER_INFO_V2`, mostly
-  the CPU's), **memory** (physical footprint) and the **thermal state**, sampled every 250 ms on
+  closes takes its time with it). Also the process's **CPU energy** as the kernel accounts it
+  (`task_energy` of `TASK_POWER_INFO_V2`): the CPU's alone, not the GPU work the process does
+  (Gingham draws its table on the GPU), not the window server's compositing (AppKit's drawing is
+  composited there); so it isn't total energy, and the column says "CPU energy". Also **memory** (physical footprint) and the **thermal state**, sampled every 250 ms on
   another thread: work an engine moves off the main thread, or to the GPU, shows here.
 - **Order check**: after each live run the feed stops, the last changes are applied, and the order
   the engine shows is checked against the store: every row once, in the scenario's order. For the
@@ -418,23 +425,110 @@ thermal state, build configuration) and the date.
 
 ## Results
 
-Final numbers come from runs on a quiet Mac and will be filled in here with the machine they ran
-on and the raw JSON lines in [`results/`](results).
+Measured on 2026-11-23 with `Scripts/run-all.sh` (3 runs of 10 s each, medians), on a MacBook Pro
+(MacBookPro18,2, Apple M1 Max, 10 cores, 32 GB), macOS 27.2.1, Gingham 1.1.1, the built-in display
+at 120 Hz, Release build. The full tables (every column, lowest and highest of the runs) and the
+raw JSON lines: [default window](results/2026-11-23-1146.md) ([JSON](results/2026-11-23-1146.jsonl)),
+[2040 × 1080](results/2026-11-23-1358.md) ([JSON](results/2026-11-23-1358.jsonl)).
 
-Machine: _to be measured_ · Gingham _version_ · display _Hz_ · Release build · `Scripts/run-all.sh`
+### Live data, the default window (1000 × 640 points of table)
 
-| Scenario | Gingham | NSTableView | NSTableView, tuned | NSTableView, cell-based | NSCollectionView | SwiftUI Table | SwiftUI Table, tuned |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Live trades: 20,000 rows, ~44,800 changes a second | — | — | — | — | — | — | — |
-| Order book: 200,000 rows, ~243,500 changes a second | — | — | — | — | — | — | — |
-| Trade feed: 1,000,000 rows, ~300,000 changes a second | — | — | — | — | — | — | — |
-| Binance tickers: ~3,100 pairs (live) | — | — | — | — | — | — | — |
-| Binance order books: ~55,000 levels (live) | — | — | — | — | — | — | — |
-| Sorting 1,000,000 rows by pair (~500 distinct) | — | — | — | — | — | — | — |
-| Sorting 1,000,000 rows by account (nearly all distinct) | — | — | — | — | — | — | — |
+Screen updates a second (the table's pixels, measured from outside) · main thread busy · data age
+(median, from the change to the frame that applied it).
 
-Each cell: screen updates a second (table) · updates applied a second · data age (median) · main
-thread busy (sorts: time to the sorted order · whether the screen kept drawing).
+| Engine | Live trades: 20,000 rows, ~44,800 changes/s | Order book: 200,000 rows, ~243,500 changes/s | Trade feed: 1,000,000 rows, ~300,000 changes/s |
+| --- | --- | --- | --- |
+| Gingham | 73 · 48% · 6 ms | 111 · 55% · 5 ms | 110 · 37% · 7 ms |
+| NSTableView | 42 · 96% · 12 ms | 19 · 99% · 27 ms | 10 · 99% · 49 ms |
+| NSTableView, tuned | — · 65% · 8 ms | 52 · 98% · 10 ms | 42 · 98% · 13 ms |
+| NSTableView, cell-based | 58 · 48% · 4 ms | 94 · 84% · 5 ms | 96 · 83% · 6 ms |
+| NSCollectionView | 52 · 65% · 8 ms | 52 · 98% · 9 ms | 42 · 98% · 13 ms |
+| SwiftUI Table | 0 · 100% · 4,608 ms | stuck (no frames for 15 s after the window) | stuck (no frames for 15 s after the window) |
+| SwiftUI Table, tuned | 4 · 100% · 138 ms | stuck (no frames for 15 s after the window) | stuck (no frames for 15 s after the window) |
+
+On `live-trades` only about 60% of the frames' changes reach the rows in view (the table is sorted
+by amount), so ~70 screen updates a second is all any engine can show there; Gingham and the
+cell-based NSTableView apply every frame's changes (118–119 updates applied a second), the others
+fewer. The tuned NSTableView's screen-meter run was invalid (the window was covered); its traced
+run read 50 screen updates a second.
+
+### Live data, a large window (2040 × 1080 points of table)
+
+At this size the trace isn't reliable (the Instruments recording held every engine near 60 frames a
+second, Gingham's presented frames too) and neither is the screen meter for this purpose (in its
+untraced runs it saw 91–92% of the frames Gingham presented, but at this size it gets close to what
+the capture can take). So: Gingham's presented frames (exact, counted by Gingham, and matching the
+system's trace at the default size) or, for the others, the updates applied a second (the most an
+engine can have shown) · main thread busy · data age. The full table has the meter's and the trace's
+columns too, marked where the recording slowed the run.
+
+| Engine | Live trades | Order book | Trade feed |
+| --- | --- | --- | --- |
+| Gingham | 120 presented · 38% · 4 ms | 120 presented · 35% · 5 ms | 119 presented · 73% · 6 ms |
+| NSTableView | 27 applied · 96% · 21 ms | 10 applied · 99% · 53 ms | 4 applied · 99% · 117 ms |
+| NSTableView, tuned | 47 applied · 93% · 13 ms | 31 applied · 97% · 17 ms | 14 applied · 96% · 37 ms |
+| NSTableView, cell-based | 114 applied · 75% · 5 ms | 76 applied · 97% · 7 ms | 40 applied · 96% · 15 ms |
+| NSCollectionView | 48 applied · 93% · 12 ms | 32 applied · 97% · 17 ms | 15 applied · 98% · 36 ms |
+| SwiftUI Table | stuck (no frames for 15 s after the window) | stuck (no frames for 15 s after the window) | stuck (no frames for 15 s after the window) |
+| SwiftUI Table, tuned | 2 applied · 100% · 242 ms | stuck (no frames for 15 s after the window) | 0 applied · 100% · 5,938 ms |
+
+### Sorting 1,000,000 rows by a text column
+
+Time to the sorted order on the screen · longest stall meanwhile (the screen kept drawing when it
+stays near 8 ms). By pair has about 500 distinct texts, by account nearly a million.
+
+| Engine | By pair | By account |
+| --- | --- | --- |
+| Gingham | 0.15 s · 16 ms | 0.18 s · 14 ms |
+| NSTableView | 5.18 s · 5,183 ms | 7.99 s · 7,993 ms |
+| NSTableView, tuned | 0.16 s · 77 ms | 7.85 s · 79 ms |
+| NSTableView, cell-based | 0.09 s · 8 ms | 7.83 s · 17 ms |
+| NSCollectionView | 0.11 s · 8 ms | 7.81 s · 35 ms |
+| SwiftUI Table | no sorted order within 60 s | no sorted order within 60 s |
+| SwiftUI Table, tuned | 0.92 s · 797 ms | 13.29 s · 890 ms |
+
+### Binance (live market: numbers vary)
+
+Tickers (about 3,100 pairs, sorted by trades): screen updates a second · main thread busy · data
+age (from arrival). The order books' rows in view hardly change (see Scenarios), so for them:
+updates applied (Gingham: presented) · main thread busy · data age.
+
+| Engine | Tickers | Order books (~55,000 levels) |
+| --- | --- | --- |
+| Gingham | 39 · 19% · 4 ms | 11 presented · 9% · 5 ms |
+| NSTableView | 26 · 94% · 12 ms | 10 applied · 87% · 32 ms |
+| NSTableView, tuned | 36 · 36% · 4 ms | 18 applied · 31% · 4 ms |
+| NSTableView, cell-based | 43 · 43% · 4 ms | 22 applied · 22% · 6 ms |
+| NSCollectionView | 44 · 37% · 4 ms | 18 applied · 19% · 4 ms |
+| SwiftUI Table | 25 · 94% · 15 ms | 1 applied · 100% · 828 ms |
+| SwiftUI Table, tuned | 21 · 64% · 8 ms | 5 applied · 91% · 70 ms |
+
+### iPhone
+
+iPhone 15 Pro Max (iPhone16,2), iOS 27.2.1, Gingham 1.1.1, 120 Hz, Release build, 2026-11-23; the
+JSON summaries are in [`results/ios`](results/ios).
+
+The app's own tests (`flicks`: scrolling as fast as a flick, down and up, while values change;
+median of 3 runs): frames a second · hitch time (ms a second) · main thread busy.
+
+| Engine | 100,000 rows, 1,000 changes/s | 1,000,000 rows, 10,000 changes/s |
+| --- | --- | --- |
+| Gingham | 120 · 0 ms/s · 20% | 120 · 0 ms/s · 31% |
+| UITableView (typical) | 62.4 · 480.2 ms/s · 82% | 6.3 · 947.8 ms/s · 98% |
+| UITableView (tuned) | 120 · 0 ms/s · 36% | 120 · 0 ms/s · 40% |
+| UICollectionView (typical) | 120 · 0 ms/s · 43% | 120 · 0 ms/s · 40% |
+| UICollectionView (tuned) | 120 · 0 ms/s · 40% | 120 · 0 ms/s · 41% |
+| SwiftUI List | 119.7 · 2.1 ms/s · 40% | 120 · 0 ms/s · 48% |
+
+Instruments' Animation Hitches on the device (render-side hitches, all three scroll tests of one
+run, hitch time a second): Gingham 1.6–8.3 ms/s, UITableView (typical) 503–507, UITableView
+(tuned) 1.0–3.6, UICollectionView (typical) 0–2.1, UICollectionView (tuned) 0–9.9, SwiftUI List
+3.1–5.2.
+
+XCUITest flicks (UIKit's own scroll metric, five flicks each): no hitches and 116–119 frames a
+second for every engine (Gingham 117.7, UITableView tuned 119.0, UICollectionView typical 116.0 and
+tuned 118.7, SwiftUI List 117.3) except the typical UITableView: 294 hitches, a hitch time ratio of
+72.5 ms a second, 111 frames a second.
 
 ## Layout of the repository
 
@@ -443,18 +537,223 @@ thread busy (sorts: time to the sorted order · whether the screen kept drawing)
   (the generator, the stores), `Binance/` (connection, decoding, book sync), `Data/` (columns,
   formatting, the apps' sorting), `Measure/` (meter, runner, report).
 - `iOS/`: the iPhone and iPad app (below).
+- `results/`: the published results: the Mac's JSON lines and tables, the iPhone's JSON summaries
+  (`results/ios`).
 - `Shared/BenchKey.swift`: the license key for the bench's bundle id.
 - `Scripts/run-all.sh`: build and run everything on the Mac; `Scripts/check-isolation.sh`: the
   check that the engines' hot code has no Swift 6 isolation checks; `Scripts/release.sh`: the
-  maintainer's script that makes the notarized download.
+  maintainer's script that makes the notarized download; `Scripts/publish.sh`: the maintainer's
+  script that creates the public repository and its release.
 - `results/`: published results (JSON lines and their tables).
 
 ## iPhone and iPad
 
-`iOS/` is an app for iPhone and iPad (iOS 17 or later) that shows the same live table in five
-engines (Gingham, UITableView, UICollectionView, SwiftUI Table and List) and measures how smoothly
-each scrolls while values change. Its setup, measurement and the device script are described in
-[`iOS/README-section.md`](iOS/README-section.md).
+`iOS/` is an app for iPhone and iPad (iOS 17 or later) that shows the same
+live table in seven engines and measures how smoothly each one scrolls:
+
+- **Gingham**, from the public binary package
+  (`https://github.com/digitalglobeby/Gingham`, the same build any app links)
+- **UITableView (typical)** and **UITableView (tuned)**
+- **UICollectionView (typical)** and **UICollectionView (tuned)**
+- **SwiftUI Table** (iPad only, see below)
+- **SwiftUI List**
+
+Every engine shows the same rows: a campaign's name and six numbers (clicks,
+views, spend, revenue, profit, ROI), formatted the same way (US English,
+whatever the device's region), in 15-point text, rows 24 points high, the same
+column widths, no column header, filling the same area; each run records the
+rows each engine had on screen. While the tests run, a feed changes rows'
+spend (and the profit and ROI that follow from it), 1,000 times a second by
+default. 20% of the changes go to the rows on or near the screen (about 200 a
+second over some 20 rows), the rest to any row; with random rows alone, a
+dozen rows out of 100,000 would almost never change while you watch.
+`-screenShare` sets the share.
+
+### Three measurements
+
+1. **Render-server hitches, real flicks** (`iOS/UITests`): XCUITest launches
+   the app with one engine (values changing as in the app's tests), flicks the
+   table up and back down, five times over after a warm-up flick, and measures
+   each flick with `XCTOSSignpostMetric.scrollingAndDecelerationMetric`: the
+   hitch time ratio, frame rate and frame count of UIKit's own scrolling and
+   deceleration, as the render server showed them. This counts everything
+   that makes a frame late, wherever the work happens. A caveat: XCUITest
+   switches on the accessibility runtime for the whole app, which users
+   without VoiceOver don't have, and it likely costs more for engines with a
+   view per cell (UIKit's labels, SwiftUI's views) than for Gingham, which
+   has none. The app hides the engines from accessibility under the UI tests
+   (XCUITest would otherwise snapshot UITableView's 100,000 rows, longer than
+   it waits), which lessens but doesn't remove that cost. So the Animation
+   Hitches recordings below, made without XCUITest, are the primary
+   render-side measurement; the UI tests add real touches and UIKit's own
+   deceleration. XCUITest also waits for the app to go idle before each
+   gesture; UITableView (typical) never does while values change, so its test
+   takes about a quarter of an hour.
+2. **Render-server hitches, the app's tests** (Instruments' Animation
+   Hitches; the primary render-side figure): one recording per engine while the app runs its tests below;
+   `iOS/Scripts/hitches-summary.py` attributes every hitch to the test it
+   happened in (the app marks each test with an os_signpost interval) and
+   gives each test's hitch count, hitch time and hitch time ratio.
+3. **The app's own meter: main-thread frame callbacks** (secondary). The app
+   asks the display for its full rate (120 frames a second on ProMotion) and
+   counts its display link's callbacks on the main thread, one per refresh
+   while the main thread keeps up. It reports frames a second, the worst
+   second, the longest frame, a hitch time modeled on Apple's hitch time ratio
+   (but from main-thread callbacks), how busy the main thread was, the
+   process's CPU time (all its threads; 100% is one core) and how long each
+   frame's update call took (applying the changes and telling the engine).
+   That last figure is the call alone and isn't comparable across engines:
+   UIKit's typical engines do their work in the call, while Gingham and
+   SwiftUI only note the change there and do the work later, at layout and
+   drawing (counted in the frames, the main thread's load and the CPU time).
+   It can't see work done after the main
+   thread hands a frame over (the render server, the GPU, an engine's own
+   drawing), which is why the first two come first.
+
+Hitches and hitch time ratio follow Apple's definitions: a hitch is a frame
+shown later than expected; the ratio is the total time frames were late, in
+milliseconds per second (under 5 ms/s is good, over 10 is bad).
+
+### The app's tests
+
+For each engine and run, the app makes the rows anew from the same seed (the
+feed restarts its sequence too), makes the engine anew, shows it for two
+seconds, scrolls it down and up for two seconds without measuring (a
+warm-up: cells, caches and text made once), then measures three tests of
+eight seconds each, half a second apart:
+
+- **steady scroll**: down at 3,000 points a second (125 rows) for four
+  seconds, back up for four;
+- **fast scroll**: the same at 8,000 points a second (333 rows);
+- **flicks**: a flick every second, four down and four up, each starting at
+  8,000 points a second and slowing down like UIScrollView's deceleration.
+
+Positions come from the time of each frame, so a dropped frame leaves the
+content further along, as under a finger. Touches are ignored during the
+tests. Engines take turns (each once, then each again; three runs by
+default), so a device warming up doesn't favor the first one. Each result also
+records what the test really did: the changes made (and how many on screen),
+how far it scrolled, the rows' measured height, the rows on screen, the
+columns shown, the refresh interval the display gave, and the thermal state at
+the start and the worst during the test. Summaries give each figure's median
+over the runs and its worst.
+
+### How each engine is set up
+
+Each is written the way its framework's guidance has it for a fast live
+list; the code explains every choice (`iOS/GinghamBench/*Engine*.swift`).
+
+- **Gingham**: columns with formats, a data source that returns each cell's
+  value, and a targeted reload of the changed cells
+  (`reloadData(forRows:columnIndexes:)`). `-ginghamExtras YES` adds what
+  Gingham usually shows and the others don't: a header, a pinned name column
+  and a live summary row (every column's average over all rows).
+- **UIKit, both engines**: fixed row heights (`rowHeight` 24 with estimates
+  off; a compositional layout of absolute 24-point items), a reused cell whose
+  content is seven labels laid out with frames (no Auto Layout), cached number
+  formatters, cell prefetching on, focus off (`allowsFocus = false`), a plain
+  data source (the rows never move, appear or disappear; a diffable data
+  source would diff every identifier on each change).
+- **typical**: changed rows near the screen are reconfigured
+  (`reconfigureRows(at:)`, `reconfigureItems(at:)`), Apple's recommended way
+  to update a cell since iOS 15. For UITableView each call's cost grows with
+  the table's row count: measured in the iPhone simulator, 3.7 ms at 10,000
+  rows, 30 ms at 100,000 and 300 ms at 1,000,000, whichever rows are passed.
+  UICollectionView's took 0.9 ms at 100,000 rows and 3.3 ms at 1,000,000.
+- **tuned**: the app keeps a map of rows to the cells showing them (filled
+  when a cell is configured) and sets changed values on those cells itself,
+  without asking UIKit to do anything; cells kept off screen or prefetched are
+  updated too, so none shows a stale value.
+- **SwiftUI Table and List**: rows given directly (stable `Identifiable`
+  ids, no `AnyView`, no indices); each row is an `@Observable` object with a
+  property per column, and each number is a small view that reads only its
+  own property, so a change updates that cell alone with nothing to diff.
+  Fixed column widths; List's rows are 24 points (no vertical insets); no
+  header (`tableColumnHeaders(.hidden)`).
+- SwiftUI Table's rows can't be made lower: we measured 44 points in the
+  iPhone simulator (iOS 18) and 52 in the iPad simulator (iOS 27.2) with this
+  text, whatever `defaultMinListRowHeight`, row insets or the cells' frames
+  say; each run records the height it measured. So that Table brings the same
+  rows a second onto the screen as the others, the tests move it faster in
+  points by the same factor (e.g. 6,500 points a second for the steady
+  scroll on iPad); its results show both.
+- On iPhone, SwiftUI Table shows only its first column, as a list, in any
+  orientation or size class (by design). It would do a fraction of the work,
+  so iPhone runs leave it out unless it is named (`-engine swiftUITable`).
+- On iPhone the app runs in landscape, the only orientation where all seven
+  columns fit; the tables stay inside the safe area.
+
+The app itself is a UIKit app (no SwiftUI around the UIKit engines); the
+SwiftUI engines are each in their own `UIHostingController`. It's built in
+Release, in the Swift 6 language mode.
+
+### Running it on a device
+
+Measure on a device, in a Release build. The simulator draws with the Mac,
+and Instruments can't record hitches there.
+
+With a device connected (Xcode 26 or later):
+
+```sh
+iOS/Scripts/run-device.sh              # the app's tests: 100,000 rows at 1,000 changes/s, then 1,000,000 at 10,000
+iOS/Scripts/run-device.sh --ui-tests   # real flicks, render-server metrics (XCTOSSignpostMetric)
+iOS/Scripts/run-device.sh --hitches    # Animation Hitches traces, one per engine, attributed to each test
+iOS/Scripts/run-device.sh --all        # all three
+iOS/Scripts/run-device.sh -- -engine gingham,tableViewTuned -rows 1000000 -rate 10000
+```
+
+The script picks the first connected iPhone or iPad (or `--device <UDID>`),
+builds the app in Release with the repository's commit recorded, installs it
+with `devicectl` and launches it with launch arguments that run the tests by
+themselves; it copies everything into `iOS/results/`: the app's JSON reports
+and logs, the UI tests' `.xcresult` and its metrics
+(`xcresulttool get test-results metrics`) as JSON, and the `.trace` files with
+their summaries. To sign with your own team, set `DEVELOPMENT_TEAM=<team id>`.
+
+From Xcode: open `iOS/GinghamBench.xcodeproj`, run the "Gingham Bench" scheme
+(Release, without the debugger), and tap **Test** (the engine shown) or
+**Run All**; Product > Test runs the UI tests.
+
+Launch arguments (each `-name value`):
+
+| Argument | Default | |
+| --- | --- | --- |
+| `-autoTest YES` | | run the tests at launch |
+| `-engine` | all (but SwiftUI Table on iPhone) | `gingham`, `tableView`, `tableViewTuned`, `collectionView`, `collectionViewTuned`, `swiftUITable`, `swiftUIList`, comma separated, or `all` |
+| `-rows` | 100000 | rows |
+| `-rate` | 1000 | changes a second |
+| `-screenShare` | 0.2 | share of the changes made to rows on or near the screen |
+| `-profiles` | steady,fast,flicks | the tests |
+| `-speed` / `-fastSpeed` | 3000 / 8000 | points a second for 24-point rows |
+| `-duration` | 8 | seconds each test lasts |
+| `-warmUp` | 2 | seconds of unmeasured scrolling first |
+| `-settle` | 2 | seconds each engine shows before that |
+| `-runs` | 3 | runs of each engine |
+| `-ginghamExtras YES` | | Gingham's header, pinned column and summary row |
+| `-exitWhenDone YES` | | quit when done |
+
+The app prints one JSON object a line: `BENCH_DEVICE`, `BENCH_BUILD`,
+`BENCH_START`, `RESULT` (each test), `BENCH_SUMMARY` (each engine and test:
+medians and worst), `BENCH_FILE`, `BENCH_DONE`; and writes a JSON report to its
+Documents (`latest.json` and a dated copy, also in the Files app) with the
+device model, iOS version, the display's maximum rate, Low Power Mode, whether
+a hardware keyboard was attached, the build (configuration, the bench's
+commit, Xcode and SDK versions, Gingham's version), the date and every test.
+
+### Before measuring
+
+- **Low Power Mode off**: it caps the display at 60 frames a second. The
+  report records it.
+- **No keyboard attached**: the UIKit engines have focus off, but the report
+  records whether a hardware keyboard was attached; compare runs without one.
+- **Cool and quiet**: the device at room temperature, not charging hard,
+  other apps closed. Each test records the thermal state; compare tests that
+  stayed `nominal` or `fair`.
+- **120 Hz on iPhone** needs `CADisableMinimumFrameDurationOnPhone` in the
+  Info.plist (the bench has it) or iPhones cap an app at 60. The report records
+  the display's maximum, and each test the refresh interval it got.
+- On iPad, the app full screen (not in a smaller window beside others).
+- Don't touch the screen while the tests run.
 
 ## Contributing
 

@@ -154,6 +154,9 @@ if [[ $RUN_HITCHES -eq 1 ]]; then
     for engine in "${ENGINES[@]}"; do
         trace="$RESULTS/ios-hitches-$engine-$STAMP.trace"
         echo "Animation Hitches: $engine…"
+        # Instruments leaves its raw kernel trace (instruments*.ktrace, 1–2 GB) in the temporary
+        # folder: those of this recording are deleted after it.
+        KTRACES_BEFORE=$(ls "${TMPDIR:-/tmp/}"instruments*.ktrace 2>/dev/null || true)
         # The recording ends when the app quits; the os_signpost instrument
         # records the app's "Scroll test" intervals to attribute the hitches.
         xcrun xctrace record --template 'Animation Hitches' --instrument os_signpost --device "$DEVICE" \
@@ -163,6 +166,10 @@ if [[ $RUN_HITCHES -eq 1 ]]; then
             || echo "Recording $engine reported problems; see $RESULTS/ios-hitches-$engine-$STAMP.log" >&2
         python3 -I "$IOS_DIR/Scripts/hitches-summary.py" "$trace" > "$RESULTS/ios-hitches-$engine-$STAMP.json" \
             || echo "Couldn't summarize $trace (open it in Instruments)." >&2
+        for ktrace in "${TMPDIR:-/tmp/}"instruments*.ktrace; do
+            [[ -e "$ktrace" ]] || continue
+            grep -qxF "$ktrace" <<< "$KTRACES_BEFORE" || rm -f "$ktrace"
+        done
         echo "→ $RESULTS/ios-hitches-$engine-$STAMP.json"
     done
 fi

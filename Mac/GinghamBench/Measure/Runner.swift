@@ -302,6 +302,7 @@ final class ChildRun {
         result.windowStartEpoch = window.start + epochOffset
         result.windowEndEpoch = window.end + epochOffset
         result.pid = ProcessInfo.processInfo.processIdentifier
+        result.window = "\(Int(options.windowSize.width))x\(Int(options.windowSize.height))"
         let screenRunning = screenMeter?.state == "running"
         result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline, screen: screenRunning)
         result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
@@ -526,6 +527,7 @@ enum Orchestrator {
         }
         let total = jobs.count
         var done = 0
+        var kernelTracesBefore: [String: Int64] = [:]
         print("Gingham Bench: \(total) runs → \(output)")
         for (scenario, run, engine, screen, pass) in jobs {
                     do {
@@ -539,12 +541,17 @@ enum Orchestrator {
                         // A short run, so that the trace stays under 10 seconds: 2 s of warm-up
                         // (Instruments attaches meanwhile) and 4 s measured.
                         childArguments += ["--warmup", "2", "--seconds", "4"]
-                        // Room for a trace: stop under 40 GB free.
+                        // Room for a trace: stop under 40 GB free. (Instruments also writes the raw
+                        // kernel trace, `instruments*.ktrace`, 1–2 GB, into the temporary folder, and
+                        // leaves it there: those of each recording are deleted after it, below.)
                         let free = (try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+                        let leftovers = kernelTraces().values.reduce(0, +)
                         if free < 40_000_000_000 {
-                            print(" — stopped: \(free / 1_000_000_000) GB free, the trace pass needs 40")
+                            print(" — stopped: \(free / 1_000_000_000) GB free, the trace pass needs 40"
+                                  + (leftovers > 0 ? " (instruments*.ktrace files in \(NSTemporaryDirectory()) take \(leftovers / 1_000_000_000) GB)" : ""))
                             break
                         }
+                        kernelTracesBefore = kernelTraces()
                     }
                     // One bench window at a time: no other copy of the app may be running.
                     let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
@@ -614,6 +621,8 @@ enum Orchestrator {
                             addSystemFrames(output: output, scenario: scenario, engine: engine, trace: tracePath)
                             // Its numbers are saved: the trace goes (`--keep-traces` keeps it).
                             if !options.keepTraces { try? FileManager.default.removeItem(atPath: tracePath) }
+                            // The raw kernel traces this recording left in the temporary folder.
+                            for path in kernelTraces().keys where kernelTracesBefore[path] == nil { try? FileManager.default.removeItem(atPath: path) }
                         }
                     } else {
                         // Ended without a result (a crash macOS caught first, a kill): reported as a failed run.
@@ -636,6 +645,18 @@ enum Orchestrator {
         print("\n" + markdown)
         print("Wrote \(output) and \(markdownPath)")
         return failures == 0 ? 0 : 1
+    }
+
+    /// The raw kernel traces Instruments leaves in the temporary folder (`instruments*.ktrace`), by
+    /// path, with their sizes.
+    static func kernelTraces() -> [String: Int64] {
+        let folder = NSTemporaryDirectory()
+        var traces: [String: Int64] = [:]
+        for name in (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? [] where name.hasPrefix("instruments") && name.hasSuffix(".ktrace") {
+            let path = (folder as NSString).appendingPathComponent(name)
+            traces[path] = ((try? FileManager.default.attributesOfItem(atPath: path)[.size]) as? NSNumber)?.int64Value ?? 0
+        }
+        return traces
     }
 
     /// The system's frames of a trace-pass run, from its trace, written into its result line.

@@ -20,3 +20,6 @@ release/
 
 # macOS
 .DS_Store
+
+# Session logs of local runs
+results/*.log

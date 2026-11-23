@@ -114,6 +114,8 @@ nonisolated struct RunResult: Codable, Sendable {
     /// The measured window in wall-clock time (seconds since 1970) and the process: to find the
     /// window in a system trace (`--trace-pass`, `Scripts/trace-frames.py`).
     var windowStartEpoch: Double?
+    /// The table's size in points (`--window`).
+    var window: String?
     var windowEndEpoch: Double?
     var pid: Int32?
     /// From a system trace of the run (`Scripts/trace-frames.py`).
@@ -180,21 +182,38 @@ nonisolated enum Report {
         for scenario in scenarios {
             let ofScenario = results.filter { $0.scenario == scenario }
             let id = ScenarioID(rawValue: scenario)
+            var notes = Set<String>()
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
             if id?.isSort == true {
                 lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Quiet: screen updates/s · callbacks/s | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Screen updates/s (table) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | Energy | Memory | Order | Runs |")
+                lines.append("| Engine | Screen updates/s (table) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | CPU energy | Memory | Order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             for engine in EngineKind.allCases.map(\.rawValue) {
                 let allRuns = ofScenario.filter { $0.engine == engine }
                 guard let title = allRuns.first?.engineTitle else { continue }
                 // The measured runs; a separate screen pass gives only the screen numbers.
-                let screenRuns = allRuns.filter { $0.status == "ok" && $0.numbers?.screenUpdatesPerSecond != nil }
-                let traced = allRuns.compactMap(\.systemFrames?.framesShownPerSecond)
+                // Screen numbers from runs not recorded by Instruments (a traced run is slower).
+                let screenRuns = allRuns.filter { $0.status == "ok" && $0.pass != "trace" && $0.numbers?.screenUpdatesPerSecond != nil }
+                let tracedRuns = allRuns.filter { $0.systemFrames?.framesShownPerSecond != nil }
+                var traced = tracedRuns.compactMap(\.systemFrames?.framesShownPerSecond)
+                // A traced run whose callbacks fell well below the measured runs' was slowed by the
+                // recording: its count says more about the trace than about the engine.
+                let measuredCallbacks = allRuns.filter { $0.pass == nil && $0.status == "ok" }.compactMap(\.numbers?.callbacksPerSecond)
+                let slowedByTrace = tracedRuns.contains { run in
+                    guard let callbacks = run.numbers?.callbacksPerSecond, let normal = measuredCallbacks.max(), normal > 0 else { return false }
+                    return callbacks < normal * 0.8
+                }
+                if slowedByTrace { notes.insert("trace") }
+                // Gingham's presented frames against the frames the screen meter saw in the same run.
+                if engine == EngineKind.gingham.rawValue, screenRuns.contains(where: { run in
+                    guard let presented = run.numbers?.presentedPerSecond, let seen = run.numbers?.screenFramesPerSecond, presented > 30 else { return false }
+                    return seen < presented * 0.8
+                }) { notes.insert("meter") }
+                if slowedByTrace { traced = [] }
                 let runs = allRuns.filter { $0.pass == nil }
                 let ok = runs.filter { $0.status == "ok" }
                 let failed = runs.filter { $0.status != "ok" }
@@ -229,12 +248,23 @@ nonisolated enum Report {
                     let updates = median(numbers.map(\.updatesAppliedPerSecond)) + (presented.isEmpty ? "" : "; presented \(median(presented))*")
                     let screens = screenRuns.compactMap(\.numbers?.screenUpdatesPerSecond)
                     let shares = screenRuns.compactMap(\.numbers?.screenChangedShareMedian)
-                    let screen = screens.isEmpty ? "— (\(ok.first?.screenMeter ?? "no meter"))"
+                    let failedScreen = allRuns.first { $0.pass == "screen" && $0.status != "ok" }
+                    let screen = screens.isEmpty ? "— (" + (failedScreen.map { "screen run \($0.status): \($0.note ?? "")" } ?? ok.first?.screenMeter ?? "no meter") + ")"
                         : median(screens) + (shares.isEmpty ? "" : ", \(median(shares.map { $0 * 100 }))% changed")
-                    lines.append("| \(title) | \(screen) | \(traced.isEmpty ? "—" : median(traced)) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
+                    let tracedText = slowedByTrace ? "— (the recording slowed the run)" : traced.isEmpty ? "—" : median(traced)
+                    lines.append("| \(title) | \(screen) | \(tracedText) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
                 }
             }
             lines.append("")
+            if notes.contains("trace") {
+                lines += ["⚠︎ The Instruments recording slowed some traced runs well below the measured runs' frames (at large window",
+                          "sizes it held every engine near 60 callbacks a second): their system frames aren't shown.", ""]
+            }
+            if notes.contains("meter") {
+                lines += ["⚠︎ The screen meter saw clearly fewer frames than Gingham presented in the same run: at this window size the",
+                          "capture doesn't keep up, so the screen updates column isn't reliable here. Read Gingham's presented frames, the",
+                          "updates applied (the most any engine could show), main thread busy and data age instead.", ""]
+            }
         }
         let hot = results.compactMap(\.numbers?.thermalState).filter { $0 != "nominal" && $0 != "fair" }
         if !hot.isEmpty { lines += ["⚠︎ \(hot.count) runs reached the thermal state \(Set(hot).sorted().joined(separator: ", ")): compare those with care.", ""] }
@@ -250,8 +280,9 @@ nonisolated enum Report {
                   "Main thread busy: share of time its run loop wasn't waiting. Longest stall: the longest time between two callbacks.",
                   "Callbacks/s: display-link callbacks the main thread got to. CPU: all threads, 100% = one core. GPU: the process's GPU",
                   "time and the window server's above its rate with the table shown and nothing changing (it composites all apps;",
-                  "AppKit's drawing is composited there, Gingham's drawn in the process), and their sum, ms a second. Energy: as the kernel accounts it to the process",
-                  "(mostly the CPU's). The window server's CPU time isn't measured. Order: the order shown,",
+                  "AppKit's drawing is composited there, Gingham's drawn in the process), and their sum, ms a second. CPU energy: the process's,",
+                  "as the kernel accounts it (task_energy): not its GPU work, not the window server's; not total energy. The",
+                  "window server's CPU time isn't measured. Order: the order shown,",
                   "checked against the store after the run. See the README for how each engine is set up.", ""]
         return lines.joined(separator: "\n")
     }

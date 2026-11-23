@@ -284,7 +284,8 @@ nonisolated struct RunNumbers: Codable, Sendable {
     var windowServerGPUBaselineMsPerSecond: Double?
     /// The process's GPU time and the window server's (less its baseline), ms a second.
     var totalGPUMsPerSecond: Double?
-    /// Energy the kernel accounts to the process (mostly the CPU's), mW.
+    /// The process's CPU energy as the kernel accounts it (`task_energy` of `TASK_POWER_INFO_V2`),
+    /// mW: not the GPU work of the process, not the window server's; not total energy.
     var energyMilliwatts: Double?
     var memoryMB: Double?
     /// The worst thermal state sampled during the window.

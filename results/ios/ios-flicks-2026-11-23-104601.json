@@ -1,0 +1,794 @@
+[
+  {
+    "testIdentifier" : "ScrollHitchTests/testCollectionViewTuned()",
+    "testIdentifierURL" : "test://com.apple.xcode/GinghamBench/Gingham%20Bench%20UITests/ScrollHitchTests/testCollectionViewTuned",
+    "testRuns" : [
+      {
+        "device" : {
+          "deviceId" : "(removed)",
+          "deviceName" : "iPhone"
+        },
+        "metrics" : [
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitches Total Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitches.total.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              3.034417959,
+              3.042513625,
+              3.025619417,
+              3.0259009590000003,
+              2.9838361250000003
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitch Time Ratio (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.time.ratio",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms per s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Count (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.count",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "frames"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Rate (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.rate",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              118.63890075683594,
+              118.65189361572266,
+              118.3228759765625,
+              119.30330657958984,
+              118.97435760498047
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "fps"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Number of Hitches (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.number",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "hitches"
+          }
+        ],
+        "testPlanConfiguration" : {
+          "configurationId" : "1",
+          "configurationName" : "Test Scheme Action"
+        }
+      }
+    ]
+  },
+  {
+    "testIdentifier" : "ScrollHitchTests/testCollectionViewTypical()",
+    "testIdentifierURL" : "test://com.apple.xcode/GinghamBench/Gingham%20Bench%20UITests/ScrollHitchTests/testCollectionViewTypical",
+    "testRuns" : [
+      {
+        "device" : {
+          "deviceId" : "(removed)",
+          "deviceName" : "iPhone"
+        },
+        "metrics" : [
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitches Total Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitches.total.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              3.0266608340000003,
+              3.059934,
+              3.051086333,
+              3.0179243340000004,
+              3.0187805
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitch Time Ratio (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.time.ratio",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms per s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Count (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.count",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "frames"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Rate (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.rate",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              114.64779663085938,
+              116.3423843383789,
+              116.02424621582031,
+              114.97969055175781,
+              119.584716796875
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "fps"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Number of Hitches (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.number",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "hitches"
+          }
+        ],
+        "testPlanConfiguration" : {
+          "configurationId" : "1",
+          "configurationName" : "Test Scheme Action"
+        }
+      }
+    ]
+  },
+  {
+    "testIdentifier" : "ScrollHitchTests/testGingham()",
+    "testIdentifierURL" : "test://com.apple.xcode/GinghamBench/Gingham%20Bench%20UITests/ScrollHitchTests/testGingham",
+    "testRuns" : [
+      {
+        "device" : {
+          "deviceId" : "(removed)",
+          "deviceName" : "iPhone"
+        },
+        "metrics" : [
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitches Total Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitches.total.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              3.0259995,
+              3.0094747920000002,
+              3.02611775,
+              3.026263583,
+              3.0062925000000003
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitch Time Ratio (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.time.ratio",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms per s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Count (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.count",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "frames"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Rate (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.rate",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              117.64707946777344,
+              118.62535095214844,
+              117.3120346069336,
+              116.31505584716797,
+              119.08354949951172
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "fps"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Number of Hitches (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.number",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "hitches"
+          }
+        ],
+        "testPlanConfiguration" : {
+          "configurationId" : "1",
+          "configurationName" : "Test Scheme Action"
+        }
+      }
+    ]
+  },
+  {
+    "testIdentifier" : "ScrollHitchTests/testSwiftUIList()",
+    "testIdentifierURL" : "test://com.apple.xcode/GinghamBench/Gingham%20Bench%20UITests/ScrollHitchTests/testSwiftUIList",
+    "testRuns" : [
+      {
+        "device" : {
+          "deviceId" : "(removed)",
+          "deviceName" : "iPhone"
+        },
+        "metrics" : [
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitches Total Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitches.total.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              3.0002876670000003,
+              3.025887416,
+              2.967074542,
+              3.025715958,
+              3.042443083
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitch Time Ratio (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.time.ratio",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms per s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Count (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.count",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "frames"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Rate (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.rate",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              119.32188415527344,
+              115.9990234375,
+              115.26504516601562,
+              117.32759857177734,
+              117.33991241455078
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "fps"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Number of Hitches (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.number",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "hitches"
+          }
+        ],
+        "testPlanConfiguration" : {
+          "configurationId" : "1",
+          "configurationName" : "Test Scheme Action"
+        }
+      }
+    ]
+  },
+  {
+    "testIdentifier" : "ScrollHitchTests/testTableViewTuned()",
+    "testIdentifierURL" : "test://com.apple.xcode/GinghamBench/Gingham%20Bench%20UITests/ScrollHitchTests/testTableViewTuned",
+    "testRuns" : [
+      {
+        "device" : {
+          "deviceId" : "(removed)",
+          "deviceName" : "iPhone"
+        },
+        "metrics" : [
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitches Total Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitches.total.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              2.975843208,
+              3.0088790000000003,
+              3.0264383340000003,
+              3.025986666,
+              3.025833
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitch Time Ratio (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.time.ratio",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms per s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Count (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.count",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "frames"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Rate (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.rate",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              118.95787048339844,
+              119.31352996826172,
+              119.28211975097656,
+              118.9694595336914,
+              115.00965881347656
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "fps"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Number of Hitches (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.number",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "hitches"
+          }
+        ],
+        "testPlanConfiguration" : {
+          "configurationId" : "1",
+          "configurationName" : "Test Scheme Action"
+        }
+      }
+    ]
+  },
+  {
+    "testIdentifier" : "ScrollHitchTests/testTableViewTypical()",
+    "testIdentifierURL" : "test://com.apple.xcode/GinghamBench/Gingham%20Bench%20UITests/ScrollHitchTests/testTableViewTypical",
+    "testRuns" : [
+      {
+        "device" : {
+          "deviceId" : "(removed)",
+          "deviceName" : "iPhone"
+        },
+        "metrics" : [
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitches Total Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitches.total.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              9868.741990000008,
+              3242.361291999992,
+              2442.185686999997,
+              3342.3819839999933,
+              8118.376806000022
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Duration (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.duration",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              56.062705209,
+              52.912883875000006,
+              48.090836125,
+              46.082201000000005,
+              44.575712333000006
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Hitch Time Ratio (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.time.ratio",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              176.03043927914274,
+              61.27735290317955,
+              50.78276923664806,
+              72.53087079470589,
+              182.125577099583
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "ms per s"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Count (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.count",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "frames"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Frame Rate (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.frame.rate",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              98.71089935302734,
+              112.50567626953125,
+              113.59752655029297,
+              111.06240844726562,
+              97.94571685791016
+            ],
+            "polarity" : "prefers larger",
+            "unitOfMeasurement" : "fps"
+          },
+          {
+            "baselineAverage" : 0,
+            "baselineName" : "",
+            "displayName" : "Number of Hitches (Scroll_DraggingAndDeceleration)",
+            "identifier" : "com.apple.dt.XCTMetric_OSSignpost-Scroll_DraggingAndDeceleration.animation.hitch.number",
+            "maxPercentRegression" : 10,
+            "maxPercentRelativeStandardDeviation" : 10,
+            "maxRegression" : 0,
+            "maxStandardDeviation" : 10,
+            "measurements" : [
+              1132,
+              277,
+              246,
+              294,
+              897
+            ],
+            "polarity" : "prefers smaller",
+            "unitOfMeasurement" : "hitches"
+          }
+        ],
+        "testPlanConfiguration" : {
+          "configurationId" : "1",
+          "configurationName" : "Test Scheme Action"
+        }
+      }
+    ]
+  }
+]
