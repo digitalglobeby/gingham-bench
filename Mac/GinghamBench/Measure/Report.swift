@@ -225,7 +225,7 @@ nonisolated enum Report {
                 // The measured runs; a separate screen pass gives only the screen numbers.
                 // Screen numbers from runs not recorded by Instruments (a traced run is slower).
                 let screenRuns = allRuns.filter { $0.status == "ok" && $0.pass != "trace" && $0.numbers?.screenUpdatesPerSecond != nil }
-                let tracedRuns = allRuns.filter { $0.systemFrames?.framesShownPerSecond != nil }
+                let tracedRuns = allRuns.filter { $0.status == "ok" && $0.systemFrames?.framesShownPerSecond != nil }
                 var traced = tracedRuns.compactMap(\.systemFrames?.framesShownPerSecond)
                 // A traced run whose callbacks fell well below the measured runs' was slowed by the
                 // recording: its count says more about the trace than about the engine.
@@ -261,9 +261,11 @@ nonisolated enum Report {
                 } else {
                     let numbers = ok.compactMap(\.numbers)
                     guard !numbers.isEmpty else {
-                        // (Only the screen or trace pass ran: their columns.)
+                        // (The measured runs failed, or only the screen or trace pass ran: what there is.)
                         let screens = screenRuns.compactMap(\.numbers?.screenUpdatesPerSecond)
-                        lines.append("| \(title) | \(screens.isEmpty ? failure ?? "—" : median(screens)) | \(traced.isEmpty ? "—" : median(traced)) | | | | | | | | | | | | | | \(runs.count) |")
+                        var first = failed.first.map { "\($0.status) (\(failed.count)/\(runs.count))" } ?? "—"
+                        if !screens.isEmpty { first += "; screen pass \(median(screens))" }
+                        lines.append("| \(title) | \(first) | \(traced.isEmpty ? "—" : median(traced)) | | | | | | | | | | | | | | \(runs.count) |")
                         continue
                     }
                     var changes = median(numbers.map(\.changesPerSecond))
@@ -284,8 +286,8 @@ nonisolated enum Report {
             }
             lines.append("")
             if notes.contains("trace") {
-                lines += ["⚠︎ The Instruments recording slowed some traced runs well below the measured runs' frames (at large window",
-                          "sizes it held every engine near 60 callbacks a second): their system frames aren't shown.", ""]
+                lines += ["⚠︎ The Instruments recording slowed some traced runs well below the measured runs' frames: their system",
+                          "frames aren't shown.", ""]
             }
             if notes.contains("meter") {
                 lines += ["⚠︎ The screen meter saw clearly fewer frames than Gingham presented in the same run: at this window size the",
@@ -307,7 +309,7 @@ nonisolated enum Report {
                   "Main thread busy: share of time its run loop wasn't waiting. Longest stall: the longest time between two callbacks.",
                   "Callbacks/s: display-link callbacks the main thread got to. CPU: all threads, 100% = one core. GPU: the process's GPU",
                   "time and the window server's above its rate with the table shown and nothing changing (it composites all apps;",
-                  "AppKit's drawing is composited there, Gingham's drawn in the process), and their sum, ms a second. CPU energy: the process's,",
+                  "AppKit's drawing is composited there, Gingham's GPU work counts as the process's), and their sum, ms a second. CPU energy: the process's,",
                   "as the kernel accounts it (task_energy): not its GPU work, not the window server's; not total energy. The",
                   "window server's CPU time isn't measured. Order: the order shown,",
                   "checked against the store after the run. See the README for how each engine is set up.", ""]

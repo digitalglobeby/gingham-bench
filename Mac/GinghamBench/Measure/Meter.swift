@@ -25,7 +25,7 @@
 //  - Process CPU (all threads, 100% = one core), the process's GPU time (the GPU driver's
 //    `accumulatedGPUTime` of the process's GPU clients, what Activity Monitor's GPU column
 //    shows) and the window server's GPU time (it composites every app's layers, ours included:
-//    AppKit's drawing is composited there, Gingham's is drawn in the process), less the window
+//    AppKit's drawing is composited there, Gingham's GPU work counts as the process's), less the window
 //    server's rate in two seconds before the feed starts (the table shown, nothing changing),
 //    and the sum of the two,
 //    the energy the kernel accounts to the process (`task_energy` of `TASK_POWER_INFO_V2`),

@@ -3,18 +3,18 @@
 //  Gingham Bench
 //
 //  The system's own count of the bench window's frames, from an Instruments trace of the run
-//  (`--trace-pass`: `xctrace record --template "Animation Hitches" --launch` of a measuring run).
-//  Two tables of that template are per process:
+//  (`--trace-pass`: `xctrace record --instrument Hitches --instrument Display --attach <pid>` of a
+//  measuring run). Two of the tables they record are per process:
 //
 //  - `hitches-updates` ("Client Updates"): each Core Animation commit of a process that went into
 //    a frame the window server put on the display (with the display swap it went into). AppKit
 //    and SwiftUI tables change the screen only through such commits; so do the window's top bar
 //    and header. A commit isn't necessarily a visible change (a commit may change nothing seen).
-//  - `metal-io-surface-access`: each GPU access to an IOSurface, by process: the frames a
-//    process draws with Metal into its layers' surfaces (Gingham's table) and the window server's
-//    reads of them when it composites. A drawn frame counts as shown when the window server read
-//    that surface after the draw and before the next draw into it. (These frames reach the screen
-//    without a commit, so they aren't client updates.)
+//  - `metal-io-surface-access`: each GPU access to an IOSurface, by process, the window server's
+//    reads included. Gingham's table is drawn by the GPU, and its frames show up here; a frame
+//    counts as shown when the window server read the surface after the process's GPU wrote it and
+//    before the next write. (These frames reach the screen without a commit, so they aren't client
+//    updates.)
 //
 //  `framesShownPerSecond` is the two together: the window's frames the system says it showed.
 //  The display's own frames (`displayed-surfaces-interval`) are the whole display's, not a

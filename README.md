@@ -303,14 +303,17 @@ it. Each callback applies the changes that came since the last one (above). Per 
   window), leaving out the top bar with its live numbers, the column header and the scroller
   strips. Also the median share of the table's rows that changed in one. The headline number.
   Data that changes off the screen changes no pixels: on `live-trades`, sorted by amount, only
-  about half of the frames' changes reach the 30-odd rows in view, so even an engine that applies
-  every frame's changes shows about 50–60 screen updates a second there; on the feeds whose
-  busiest rows are in view, nearly every update shows.
+  about 60% of the frames' changes reach the rows in view, so ~70 screen updates a second is all
+  any engine can show there; on the feeds whose busiest rows are in view, nearly every update
+  shows. The capture itself tops out near 110 frames a second (it saw 110.6 of the 119.4 frames
+  Gingham presented on `order-book`).
   It needs the **Screen Recording permission** of the process that captures: the app's when it's
   opened from the Finder, the terminal app's when it runs from the command line (System Settings ›
   Privacy & Security › Screen & System Audio Recording). Without it the column says why it's
-  empty. Measured cost: within run-to-run noise for most engines, up to about 5% fewer updates for
-  one already saturated (the tuned NSTableView on `order-book`: 48 against 50–51); so `run-all.sh`
+  empty. Measured cost (the published default-size session): none for Gingham and the cell-based
+  table (119.3 updates applied a second against 119.4, 119.8 against 119.7 on `order-book`), up to
+  about 10% fewer updates for the saturated view-based engines (NSCollectionView on `order-book`
+  51.7 against 57.3, the tuned NSTableView 52 against 56.5); so `run-all.sh`
   measures without it and runs one more round of every scenario and engine with it
   (`--separate-screen-pass`), whose screen numbers fill the column. Each sort run also checks the
   meter: two seconds after the sorts, with nothing changing, should give about 0 screen updates
@@ -318,17 +321,17 @@ it. Each callback applies the changes that came since the last one (above). Per 
   `live-trades`: the callbacks after which the 30 top rows by amount look different
   (`visibleDataChangesPerSecond`), and whether the engine shows exactly those rows in that order
   one frame later (printed after the run); `=26` counts the top 26 rows instead of 30. Checked
-  that way (26 rows, about those in the meter's region for every engine): Gingham 72.5 screen
-  updates a second against 69.5 data changes, the tuned NSTableView 58.8 against 59.5, the
-  cell-based one 68.3 against 69.8.
+  that way in an earlier session (not in the published results; 26 rows, about those in the
+  meter's region for every engine): Gingham 72.5 screen updates a second against 69.5 data
+  changes, the tuned NSTableView 58.8 against 59.5, the cell-based one 68.3 against 69.8.
 - **System frames a second (trace)**: the system's own count, from an Instruments trace of one more
   run of each engine on `live-trades` and `order-book` (`--trace-pass`, also through `run-all.sh`;
-  only the Hitches and Display instruments: the whole Animation Hitches template slowed the traced
-  run to 60 frames a second). No trace table is per window on macOS (the display's "Displayed
+  only the Hitches and Display instruments: in a test, the whole Animation Hitches template slowed
+  the traced run to 60 frames a second). No trace table is per window on macOS (the display's "Displayed
   Surfaces" are the whole screen's framebuffers), but two are per process: the Core Animation
   commits that went into a display frame (`hitches-updates`, with the frame's swap ID) and the GPU's
-  accesses to surfaces (`metal-io-surface-access`): Gingham draws its table into a surface the
-  window server then reads to composite. The column counts the display frames that got new content
+  accesses to surfaces (`metal-io-surface-access`), the window server's reads included: Gingham's
+  table is drawn by the GPU, and its frames show up there. The column counts the display frames that got new content
   from the bench's window either way, once each. During that run the top bar's live numbers stay
   still, so the commits are the table's. Instruments attaches to the run's process
   (`xctrace record --attach`): launched by `xctrace --launch`, a binary inside an app bundle goes
@@ -336,16 +339,16 @@ it. Each callback applies the changes that came since the last one (above). Per 
   trace (10 seconds at most) is read right after it's recorded and deleted, with the raw kernel
   trace Instruments leaves behind in the temporary folder (`instruments*.ktrace`, 1–2 GB each), one
   on the disk at a time, in `~/Library/Caches/gingham-bench-traces`; the pass stops with less than 40 GB free.
-  What it showed (one run each, a busy Mac): Gingham's GPU frames the window server read equal its
-  own presented frames (114.2 and 114.2 on `live-trades`, 119.2 and 119.2 on `order-book`); for the
-  AppKit engines the display frames with new content equal the updates applied when every update
-  changes something in view, and come close to the data's visible changes when not (the tuned
-  NSTableView: 59.2 against 59.0). It is an upper bound of what changes on the screen: a frame
-  with the same pixels counts too (Gingham presents a frame for every batch applied, the cell-based
-  table redraws the changed cells: 114–116 such frames a second on `live-trades` where the screen
-  meter and the data agree on about 70 visible changes). In the traced run the screen meter also
-  read about 17% low for the view-based tuned engines, so the screen numbers come from runs
-  without a trace.
+  What it showed (the published default-size session, one traced run each): Gingham's GPU frames
+  the window server read equal its own presented frames (119.75 and 119.75 on `live-trades`, 118.5
+  and 118.5 on `order-book`); for the AppKit engines the display frames with new content equal the
+  updates applied when every update changes something in view (`order-book`: the tuned NSTableView
+  50.5 and 50.5, NSCollectionView 51 and 51), and are fewer when not (`live-trades`: the tuned
+  NSTableView 54.5 of 90.5 updates applied, against 49.5 screen updates). It is an upper bound of
+  what changes on the screen: a frame with the same pixels counts too (Gingham presents a frame for
+  every batch applied: 119.5 such frames a second on `live-trades` against 73.3 screen updates; the
+  cell-based table 73 against 58.8, its GPU frames 85.8). The screen numbers come from runs without
+  a trace.
 - **Updates applied a second**: callbacks that applied new data, the times a second the table was
   given something new to show (at most the screen's refresh rate). Whether each update then
   reached the screen, only Gingham can tell (`GHTableView.framePresented`); its **frames
@@ -371,10 +374,10 @@ it. Each callback applies the changes that came since the last one (above). Per 
   **window server's GPU time** above its rate in two seconds before the feed starts (the table
   shown, nothing changing; it composites every app's layers, so this is Mac-wide), and **the two
   together**: the work lands in different places, AppKit's drawing composited under the window
-  server, Gingham's drawn in the process. Only increases between samples count (a GPU client that
+  server, Gingham's GPU work counted as the process's. Only increases between samples count (a GPU client that
   closes takes its time with it). Also the process's **CPU energy** as the kernel accounts it
   (`task_energy` of `TASK_POWER_INFO_V2`): the CPU's alone, not the GPU work the process does
-  (Gingham draws its table on the GPU), not the window server's compositing (AppKit's drawing is
+  (Gingham's table is drawn by the GPU), not the window server's compositing (AppKit's drawing is
   composited there); so it isn't total energy, and the column says "CPU energy". Also **memory** (physical footprint) and the **thermal state**, sampled every 250 ms on
   another thread: work an engine moves off the main thread, or to the GPU, shows here.
 - **Order check**: after each live run the feed stops, the last changes are applied, and the order
@@ -454,10 +457,11 @@ run read 50 screen updates a second.
 
 ### Live data, a large window (2040 × 1080 points of table, 4080 × 2160 pixels)
 
-At this size the trace isn't reliable (the Instruments recording held every engine near 60 frames a
-second, Gingham's presented frames too) and neither is the screen meter for this purpose (in its
-untraced runs it saw 91–92% of the frames Gingham presented, but at this size it gets close to what
-the capture can take). So: Gingham's presented frames (exact, counted by Gingham, and matching the
+At this size the trace isn't reliable (the Instruments recording slowed the traced runs: Gingham to
+60 frames a second, the cell-based table to 94 and 71 instead of 114 and 76), and the screen
+capture tops out near 110 frames a second at either size (here it saw 107.7 of the 118.6 frames
+Gingham presented on `order-book`, at the default size 110.6 of 119.4), so it can't tell an engine
+at 110 from one at 120. So: Gingham's presented frames (exact, counted by Gingham, and matching the
 system's trace at the default size) or, for the others, the updates applied a second (the most an
 engine can have shown) · main thread busy · data age. The full table has the meter's and the trace's
 columns too, marked where the recording slowed the run.
@@ -496,7 +500,7 @@ updates applied (Gingham: presented) · main thread busy · data age.
 | Engine | Tickers | Order books (~55,000 levels) |
 | --- | --- | --- |
 | Gingham | 39 · 19% · 4 ms | 10 presented · 9% · 5 ms |
-| NSTableView | 26 · 94% · 12 ms | 10 applied · 87% · 32 ms |
+| NSTableView | 26 · 94% · 12 ms | 10 applied · 87% · 32 ms (2 runs; 1 timed out) |
 | NSTableView, tuned | 36 · 36% · 4 ms | 18 applied · 31% · 4 ms |
 | NSTableView, cell-based | 43 · 43% · 4 ms | 22 applied · 22% · 6 ms |
 | NSCollectionView | 44 · 37% · 4 ms | 18 applied · 19% · 4 ms |
@@ -526,9 +530,9 @@ run, hitch time a second): Gingham 1.6–8.3 ms/s, UITableView (typical) 503–5
 3.1–5.2.
 
 XCUITest flicks (UIKit's own scroll metric, five flicks each): no hitches and 116–119 frames a
-second for every engine (Gingham 117.7, UITableView tuned 119.0, UICollectionView typical 116.0 and
-tuned 118.7, SwiftUI List 117.3) except the typical UITableView: 294 hitches, a hitch time ratio of
-72.5 ms a second, 111 frames a second.
+second for every engine (Gingham 117.6, UITableView tuned 119.0, UICollectionView typical 116.0 and
+tuned 118.7, SwiftUI List 117.3; medians of the five flicks) except the typical UITableView: a
+median of 294 hitches a flick, a hitch time ratio of 72.5 ms a second, 111.1 frames a second.
 
 ## Layout of the repository
 
@@ -544,7 +548,6 @@ tuned 118.7, SwiftUI List 117.3) except the typical UITableView: 294 hitches, a 
   check that the engines' hot code has no Swift 6 isolation checks; `Scripts/release.sh`: the
   maintainer's script that makes the notarized download; `Scripts/publish.sh`: the maintainer's
   script that creates the public repository and its release.
-- `results/`: published results (JSON lines and their tables).
 
 ## iPhone and iPad
 
