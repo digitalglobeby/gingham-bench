@@ -24,12 +24,14 @@
 		8AE0954DBC81A08829BCD028 /* Columns.swift in Sources */ = {isa = PBXBuildFile; fileRef = E82D253D06EE35D0B84A56A2 /* Columns.swift */; };
 		8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A809119AA85FC36961D2BF4 /* SortScenario.swift */; };
 		92879D9EC5D0B2B9B8330059 /* BinanceBookSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A441FB83BEF1D0492D93A5D /* BinanceBookSync.swift */; };
+		938DA0E7929E99F539937F80 /* CrashCatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F55DC968127DA0B506B841 /* CrashCatcher.swift */; };
 		9DD9017F9C9F25CE64590593 /* GinghamEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2026341A9B89FB5FE16CF1 /* GinghamEngine.swift */; };
 		9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04E10F329FCC5A688F002172 /* NSTableEngine.swift */; };
 		A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */; };
 		A640D0E45785091AE55AB344 /* BenchKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B32872C90D5173DEADBBD10 /* BenchKey.swift */; };
 		B0BCA84C18CF9144672C3C95 /* SwiftUITunedEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C55F6B6DA9FC9AD0409FD08 /* SwiftUITunedEngine.swift */; };
 		B12D94D0E67AF79C7673785E /* Interactive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C1544288EA66E022C7CB883 /* Interactive.swift */; };
+		B136A1C5B62DB5234195A686 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C66C516821460A4A47BAE6E /* SelfTest.swift */; };
 		BE3F08E2141A431C869C4238 /* Options.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8555400C620E2A12EB75DFA /* Options.swift */; };
 		BFA7817CD20D7BB2ADC7D22B /* Meter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B3E5852E80F3F093036088 /* Meter.swift */; };
 		BFF510ECCF6BDA667D8B6D89 /* FeedGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E141FD4035276654B386B9 /* FeedGenerator.swift */; };
@@ -45,6 +47,8 @@
 		0F80A147CA85B939AA0DFC02 /* Scenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scenario.swift; sourceTree = "<group>"; };
 		112D67A225F3C54BD30E8C67 /* BinanceConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceConnection.swift; sourceTree = "<group>"; };
 		27E1F75EC4E7AF40DACE101E /* Engine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine.swift; sourceTree = "<group>"; };
+		29F55DC968127DA0B506B841 /* CrashCatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashCatcher.swift; sourceTree = "<group>"; };
+		2C66C516821460A4A47BAE6E /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		4A441FB83BEF1D0492D93A5D /* BinanceBookSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceBookSync.swift; sourceTree = "<group>"; };
 		4BE3CFCDD383666C7B0A7F28 /* AppSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSort.swift; sourceTree = "<group>"; };
 		545C86ECB84A2C2019F59DA4 /* SyntheticScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticScenario.swift; sourceTree = "<group>"; };
@@ -128,9 +132,11 @@
 		625B46054F4D06A151EB65A9 /* Measure */ = {
 			isa = PBXGroup;
 			children = (
+				29F55DC968127DA0B506B841 /* CrashCatcher.swift */,
 				00B3E5852E80F3F093036088 /* Meter.swift */,
 				598A062B7F93CBD847E38015 /* Report.swift */,
 				AA70C66D0905A84B2844489E /* Runner.swift */,
+				2C66C516821460A4A47BAE6E /* SelfTest.swift */,
 			);
 			path = Measure;
 			sourceTree = "<group>";
@@ -262,6 +268,7 @@
 				8433E1A4EC1ADFE1A660EC49 /* BinanceScenario.swift in Sources */,
 				45CAD5EC79F3EDC660203A26 /* CollectionEngine.swift in Sources */,
 				8AE0954DBC81A08829BCD028 /* Columns.swift in Sources */,
+				938DA0E7929E99F539937F80 /* CrashCatcher.swift in Sources */,
 				346BC2F334A3C7AA01FE8CA3 /* Engine.swift in Sources */,
 				BFF510ECCF6BDA667D8B6D89 /* FeedGenerator.swift in Sources */,
 				9DD9017F9C9F25CE64590593 /* GinghamEngine.swift in Sources */,
@@ -275,6 +282,7 @@
 				80A5291E965FB5754E58DB4B /* Report.swift in Sources */,
 				DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */,
 				4A6C26AA4EAA8F10587D4B1E /* Scenario.swift in Sources */,
+				B136A1C5B62DB5234195A686 /* SelfTest.swift in Sources */,
 				8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */,
 				50C7F18539AF31AA97AE9C61 /* SwiftUIEngine.swift in Sources */,
 				B0BCA84C18CF9144672C3C95 /* SwiftUITunedEngine.swift in Sources */,

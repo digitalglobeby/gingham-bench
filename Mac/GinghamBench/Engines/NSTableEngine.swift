@@ -35,6 +35,8 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
     private var changedColumns = IndexSet()
     private var countChanged = false
     private var valuesChanged = false
+    private(set) var desyncCount = 0
+    private var lostStep = false
     var view: NSView { scrollView }
 
     private static let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -103,21 +105,37 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
         } else {
             var rows = changedRows
             rows.remove(integersIn: source.rowCount ..< max(source.rowCount, (rows.last ?? 0) + 1))
-            if !rows.isEmpty { tableView.reloadData(forRowIndexes: rows, columnIndexes: changedColumns) }
+            if !rows.isEmpty, !lostStep { tableView.reloadData(forRowIndexes: rows, columnIndexes: changedColumns) }
             tableView.endUpdates()
+            if lostStep {
+                lostStep = false
+                tableView.reloadData()
+            }
         }
         (changedRows, changedColumns, countChanged, valuesChanged) = ([], [], false, false)
     }
 
     func insertRows(_ rows: Range<Int>) {
         countChanged = true
-        guard order == nil else { return }
+        guard order == nil, !lostStep else { return }
+        // (A change the table wasn't told about: the table is reloaded at the end of the batch
+        // instead of an exception, and the order check reports it.)
+        guard rows.lowerBound == tableView.numberOfRows else {
+            desyncCount += 1
+            lostStep = true
+            return
+        }
         tableView.insertRows(at: IndexSet(integersIn: rows), withAnimation: [])
     }
 
     func removeRowReplacingWithLast(_ row: Int) {
         countChanged = true
-        guard order == nil, let source else { return }
+        guard order == nil, !lostStep, let source else { return }
+        guard source.rowCount == tableView.numberOfRows - 1 else {
+            desyncCount += 1
+            lostStep = true
+            return
+        }
         // The last row goes; the removed row's place shows what the last one showed.
         let last = source.rowCount
         tableView.removeRows(at: [last], withAnimation: [])

@@ -101,6 +101,10 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
         depth -= 1
         guard depth == 0, let source = rows.source else { return }
         let ended = rows.end(visible: visibleRows)
+        if ended.reloadAll {
+            tableView.reloadData()
+            return
+        }
         let shown = tableView.numberOfRows, all = rows.allColumns
         for refresh in ended.refreshes where refresh.display < shown {
             for column in refresh.allColumns ? all : ended.columns {
@@ -134,6 +138,7 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     }
 
     var isSorting: Bool { rows.isSorting }
+    var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { tableView.numberOfRows }
 
     func shownTexts() -> [(display: Int, column: Int, text: String)] {

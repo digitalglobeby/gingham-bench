@@ -181,18 +181,40 @@ final class SwiftUIEngine: Engine {
             swap(&working, &model.rows)
         }
         working = []
+        if lostStep, let source {
+            lostStep = false
+            storeRows = []
+            load(source, sort: model.sortOrder.map { SortSpec(column: $0.column, ascending: $0.order == .forward) })
+        }
     }
 
+    /// Changes that didn't match the rows known (see `Engine.desyncCount`): rebuilt at the end.
+    private(set) var desyncCount = 0
+    private var lostStep = false
+
     func insertRows(_ rows: Range<Int>) {
+        guard !lostStep else { return }
+        guard depth > 0, rows.lowerBound == working.count else {
+            desyncCount += 1
+            lostStep = true
+            return
+        }
         for row in rows { working.append(makeRow(row)) }
     }
 
     func removeRowReplacingWithLast(_ row: Int) {
+        guard !lostStep else { return }
+        guard depth > 0, let source, source.rowCount == working.count - 1 else {
+            desyncCount += 1
+            lostStep = true
+            return
+        }
         let last = working.removeLast()
         if row < working.count { working[row] = last }
     }
 
     func reloadRows(_ rows: [Int], columns: IndexSet) {
+        guard !lostStep else { return }
         for row in rows where row < working.count {
             for column in columns { working[row].values[column] = cell(row, column) }
         }

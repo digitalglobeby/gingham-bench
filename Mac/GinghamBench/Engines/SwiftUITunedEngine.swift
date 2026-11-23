@@ -260,15 +260,36 @@ final class SwiftUITunedEngine: Engine {
 
     func endUpdates() {
         depth -= 1
-        guard depth == 0, let liveOrder else { return }
+        guard depth == 0 else { return }
+        if lostStep, let source {
+            lostStep = false
+            let sort = liveOrder?.sort ?? []
+            storeRows = []
+            liveOrder = nil
+            load(source, sort: sort)
+            model.generation += 1
+            return
+        }
+        guard let liveOrder else { return }
         if liveOrder.placePending() {
             model.rows = displayed()
             if !Self.diffsMoves { model.generation += 1 }
         }
     }
 
+    /// Changes that didn't match the rows known (see `Engine.desyncCount`): rebuilt at the end.
+    private(set) var desyncCount = 0
+    private var lostStep = false
+    private var knownCount: Int { liveOrder != nil ? storeRows.count : model.rows.count }
+
+    private func loseStep() {
+        if !lostStep { desyncCount += 1 }
+        lostStep = true
+    }
+
     func insertRows(_ inserted: Range<Int>) {
-        guard let source else { return }
+        guard let source, !lostStep else { return }
+        guard inserted.lowerBound == knownCount, inserted.upperBound <= source.rowCount else { return loseStep() }
         if liveOrder != nil {
             for row in inserted { storeRows.append(makeRow(row)) }
             liveOrder?.rowsInserted(inserted, source: source)
@@ -278,6 +299,8 @@ final class SwiftUITunedEngine: Engine {
     }
 
     func removeRowReplacingWithLast(_ row: Int) {
+        guard let source, !lostStep else { return }
+        guard source.rowCount == knownCount - 1 else { return loseStep() }
         if liveOrder != nil {
             let last = storeRows.removeLast()
             if row < storeRows.count { storeRows[row] = last }
@@ -289,7 +312,7 @@ final class SwiftUITunedEngine: Engine {
     }
 
     func reloadRows(_ changed: [Int], columns: IndexSet) {
-        guard let source else { return }
+        guard let source, !lostStep else { return }
         let objects = liveOrder != nil ? storeRows : model.rows
         for row in changed where row < objects.count {
             let object = objects[row]
@@ -322,6 +345,15 @@ final class SwiftUITunedEngine: Engine {
         sortGeneration += 1
         let generation = sortGeneration
         if liveOrder == nil, !sort.isEmpty { storeRows = model.rows }
+        // A live store is sorted at once (its rows change under a background sort; the rows
+        // taken above would go stale).
+        if !source.isStatic, !sort.isEmpty {
+            liveOrder = LiveOrder.makeNow(source, sort: sort)
+            model.rows = displayed()
+            model.generation += 1
+            isSorting = false
+            return
+        }
         guard !sort.isEmpty else {
             if liveOrder != nil {
                 liveOrder = nil

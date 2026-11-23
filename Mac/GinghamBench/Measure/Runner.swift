@@ -56,6 +56,25 @@ nonisolated final class Watchdog: @unchecked Sendable {
         }
     }
 
+    /// The result so far (written if the run crashes or hangs).
+    func update(template: RunResult) { lock.withLock { self.template = template } }
+
+    /// The process crashed (`CrashCatcher`, on its thread): the result so far as "crashed".
+    func crashed(_ description: String) {
+        let result: RunResult? = lock.withLock {
+            guard !isDone else { return nil }
+            isDone = true
+            var result = template
+            result.status = "crashed"
+            result.note = description
+            return result
+        }
+        guard let result else { return }
+        if let output { result.append(to: output) }
+        print("RESULT \(result.jsonLine)")
+        fflush(stdout)
+    }
+
     /// The main thread wrote the result: nothing to do.
     func done() { lock.withLock { isDone = true } }
 
@@ -135,6 +154,12 @@ final class ChildRun {
         ui.show()
         let scenario = scenarioID.make(options: options)
         self.scenario = scenario
+        // From here on a crash or a hang is reported as this run's result.
+        let watchdog = Watchdog(data: meter.data, template: makeBasicResult(status: "ok", note: nil), output: options.output,
+                                loadTimeout: options.loadTimeout)
+        self.watchdog = watchdog
+        watchdog.start()
+        CrashCatcher.report = { [watchdog] description in watchdog.crashed(description) }
         Task {
             do {
                 try await scenario.prepare()
@@ -157,9 +182,8 @@ final class ChildRun {
     private func begin(_ scenario: Scenario) {
         let template = makeTemplate(scenario)
         self.template = template
-        let watchdog = Watchdog(data: meter.data, template: template, output: options.output, loadTimeout: options.loadTimeout)
-        self.watchdog = watchdog
-        watchdog.start()
+        watchdog?.update(template: template)
+        guard let watchdog else { return }
         ui.bar.subtitle.stringValue = scenario.subtitle
         let engine = kind.make()
         self.engine = engine
@@ -174,6 +198,13 @@ final class ChildRun {
         watchInterruptions()
         if scenarioID.isSort, let sortScenario = scenario as? SortScenario {
             Task { await runSorts(sortScenario, engine: engine) }
+        }
+        // A test of the crash reporting: a Swift runtime trap two seconds in.
+        if ProcessInfo.processInfo.environment["GINGHAM_BENCH_CRASH_TEST"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                let empty: [Int] = []
+                print(empty[Int(CACurrentMediaTime()) % 3 + 1])
+            }
         }
     }
 
@@ -288,7 +319,8 @@ final class ChildRun {
 
     /// Whether the engine shows every row of the store once, in the scenario's order (ties in
     /// any order; unsorted: the store's order): nil, or what's wrong.
-    static func checkOrder(_ engine: Engine, source: BenchSource, sort: [SortSpec]) -> String? {
+    static func checkOrder(_ engine: Engine, source: BenchSource, sort: [SortSpec], allowingDesyncs: Bool = false) -> String? {
+        if engine.desyncCount > 0, !allowingDesyncs { return "the engine lost step with the store's changes \(engine.desyncCount) times (rows rebuilt)" }
         let count = source.rowCount
         guard engine.displayedRowCount == count else { return "shows \(engine.displayedRowCount) rows of \(count)" }
         var seen = [Bool](repeating: false, count: count)
@@ -308,11 +340,15 @@ final class ChildRun {
         return nil
     }
 
+    private func makeBasicResult(status: String, note: String?) -> RunResult {
+        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run,
+                  status: status, note: note, rows: 0, warmup: 0, loadSeconds: nil, nominalChangesPerSecond: nil,
+                  numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
+                  date: ISO8601DateFormatter().string(from: Date()))
+    }
+
     private func finish(status: String, note: String?) {
-        var result = template ?? RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run,
-                                           status: status, note: note, rows: 0, warmup: 0, loadSeconds: nil, nominalChangesPerSecond: nil,
-                                           numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
-                                           date: ISO8601DateFormatter().string(from: Date()))
+        var result = template ?? makeBasicResult(status: status, note: note)
         result.status = status
         result.note = note
         write(result)
@@ -457,7 +493,19 @@ enum Orchestrator {
                     }
                     let text = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
                     let line = text.split(separator: "\n").last { $0.hasPrefix("RESULT ") }
-                    print(" — " + (line.map { summary(of: String($0.dropFirst(7))) } ?? "no result (exit \(process.terminationStatus))"))
+                    if let line {
+                        print(" — " + summary(of: String(line.dropFirst(7))))
+                    } else {
+                        // Ended without a result (a crash macOS caught first, a kill): reported as a failed run.
+                        let how = process.terminationReason == .uncaughtSignal ? "signal \(process.terminationStatus)" : "exit status \(process.terminationStatus)"
+                        let result = RunResult(scenario: scenario.rawValue, engine: engine.rawValue, engineTitle: engine.title, run: run,
+                                               status: "crashed", note: "the app ended without a result (\(how)); see ~/Library/Logs/DiagnosticReports",
+                                               rows: 0, warmup: options.warmup(for: scenario), loadSeconds: nil, nominalChangesPerSecond: nil,
+                                               numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: NSScreen.main),
+                                               date: ISO8601DateFormatter().string(from: Date()))
+                        result.append(to: output)
+                        print(" — crashed: \(result.note ?? "")")
+                    }
                     if process.terminationStatus != 0 { failures += 1 }
                     Thread.sleep(forTimeInterval: 1)
                 }

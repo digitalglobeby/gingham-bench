@@ -60,6 +60,11 @@ jobs:
             -configuration Release -destination "generic/platform=macOS" \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGNING_ALLOWED=NO -quiet
+      - name: Engines keep step with the store (replay, no network)
+        # (Runs the built app without a window; informative only.)
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/DerivedData/Build/Products/Release/Gingham Bench.app/Contents/MacOS/Gingham Bench" --self-test
       - name: Formatting matches Gingham's
         # (Runs the built app without a window; informative only.)
         continue-on-error: true

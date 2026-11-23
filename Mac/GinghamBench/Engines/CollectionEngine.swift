@@ -167,6 +167,10 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         guard depth == 0, let source = rows.source else { return }
         let shownCount = collectionView.numberOfItems(inSection: 0)
         let ended = rows.end(visible: visibleRows)
+        if ended.reloadAll {
+            collectionView.reloadData()
+            return
+        }
         let all = rows.allColumns
         for refresh in ended.refreshes where refresh.display < shownCount {
             guard let item = collectionView.item(at: IndexPath(item: refresh.display, section: 0)) as? Item else { continue }
@@ -195,6 +199,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     }
 
     var isSorting: Bool { rows.isSorting }
+    var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
 
     func shownTexts() -> [(display: Int, column: Int, text: String)] {

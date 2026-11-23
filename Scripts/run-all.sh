@@ -39,6 +39,8 @@ fi
 APP="$DERIVED/Build/Products/Release/Gingham Bench.app/Contents/MacOS/Gingham Bench"
 # The engines' hot code without Swift 6's per-call isolation checks (see the script).
 Scripts/check-isolation.sh "$APP"
+# Every engine keeps step with the store's changes (a replay of order book changes, no network).
+"$APP" --self-test > build/self-test.txt 2>&1 || { echo "✗ self-test failed:"; grep -v "^sandbox" build/self-test.txt; exit 1 }
 
 # Awake for the whole run, the display too (a sleeping display stops the frames; runs during
 # which the screen locked or the window was covered are reported as invalid).

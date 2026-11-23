@@ -318,6 +318,12 @@ it. Each callback applies the changes that came since the last one (above). Per 
   the engine shows is checked against the store: every row once, in the scenario's order. For the
   view-based AppKit tables, whose cells can be read, the text of every cell in view is checked
   against the store too (a stale in-place update fails).
+- **Crashes**: a run that crashes is reported as a failed run ("crashed", with the crash's kind
+  and the crashed thread's top frames) and the process ends without macOS's dialog, so an
+  unattended run goes on (`--crash-reports` leaves crashes to macOS instead). An engine whose rows
+  lose step with the store's changes rebuilds them and the order check reports it, instead of an
+  index out of range; `--self-test` (run by `run-all.sh`) replays order book changes into every
+  engine without the network and checks both.
 - **Interruptions**: a run during which the window was covered (Gingham stops drawing what isn't
   seen, which would favor it), the screen locked, the screen saver started or the display slept is
   reported as invalid.

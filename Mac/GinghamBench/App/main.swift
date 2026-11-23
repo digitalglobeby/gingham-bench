@@ -43,6 +43,10 @@ if let name = options.calibrateFeed {
     exit(0)
 }
 
+if options.selfTest {
+    exit(SelfTest.run())
+}
+
 if let path = options.summarize {
     let markdown = Report.markdown(Report.read(path))
     if let output = options.markdown { try? markdown.write(toFile: output, atomically: true, encoding: .utf8) } else { print(markdown) }
@@ -51,6 +55,11 @@ if let path = options.summarize {
 
 if options.isMeasuring && !options.isChild {
     exit(Orchestrator.run(options))
+}
+
+// A measuring run that crashes reports it as its result, without macOS's dialog.
+if options.isChild && !options.crashReports {
+    CrashCatcher.install()
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

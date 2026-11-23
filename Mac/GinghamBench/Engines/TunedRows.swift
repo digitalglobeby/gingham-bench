@@ -59,12 +59,29 @@ final class TunedRows {
         }
     }
 
+    /// Times the store's changes didn't match the rows this side knows (a change the engine
+    /// wasn't told about): the rows are then rebuilt from the store at the end of the batch, and
+    /// the run's order check reports it, rather than an index out of range.
+    private(set) var desyncs = 0
+    private var lostStep = false
+
+    private func loseStep() {
+        if !lostStep { desyncs += 1 }
+        lostStep = true
+    }
+
     func insertRows(_ rows: Range<Int>) {
+        guard !lostStep else { return }
+        // The rows come at the end: right after the rows known so far, and the store has them.
+        guard rows.lowerBound == changedMark.count, let source, rows.upperBound <= source.rowCount else { return loseStep() }
         changedMark.append(contentsOf: repeatElement(false, count: rows.count))
-        if let source { liveOrder?.rowsInserted(rows, source: source) }
+        liveOrder?.rowsInserted(rows, source: source)
     }
 
     func removeRowReplacingWithLast(_ row: Int) {
+        guard !lostStep else { return }
+        // The store has removed it already: one row fewer than known, `row` among them.
+        guard let source, source.rowCount == changedMark.count - 1, row >= 0, row <= source.rowCount else { return loseStep() }
         let last = changedMark.count - 1
         if row != last {
             changedMark[row] = changedMark[last]
@@ -76,7 +93,7 @@ final class TunedRows {
     }
 
     func reloadRows(_ rows: [Int], columns: IndexSet) {
-        guard let source else { return }
+        guard let source, !lostStep else { return }
         changedColumns.formUnion(columns)
         for row in rows where row < changedMark.count && !changedMark[row] {
             changedMark[row] = true
@@ -94,6 +111,8 @@ final class TunedRows {
     }
 
     struct Ended {
+        /// The rows were rebuilt from the store (they had lost step): reload everything.
+        var reloadAll = false
         var countChanged: Bool
         var refreshes: [Refresh]
         /// The columns that changed in the rows that kept their place.
@@ -103,6 +122,15 @@ final class TunedRows {
     /// At the end of the batch: whether the number of rows changed, and the places in view to
     /// update. (Loops, no closures: see `AppSortWork`.)
     func end(visible: Range<Int>) -> Ended {
+        if lostStep, let source {
+            lostStep = false
+            liveOrder = sortSpecs.isEmpty ? nil : LiveOrder.makeNow(source, sort: sortSpecs)
+            changedMark = [Bool](repeating: false, count: source.rowCount)
+            changed.removeAll(keepingCapacity: true)
+            replaced.removeAll(keepingCapacity: true)
+            changedColumns = []
+            return Ended(reloadAll: true, countChanged: true, refreshes: [], columns: [])
+        }
         var ended = Ended(countChanged: count != countAtBegin, refreshes: [], columns: changedColumns)
         if let liveOrder {
             liveOrder.placePending()

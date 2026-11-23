@@ -87,6 +87,9 @@ protocol Engine: AnyObject {
     /// The store's row shown at a place, and the rows shown, for checking an order.
     func sourceRow(atDisplayIndex index: Int) -> Int?
     var displayedRowCount: Int { get }
+    /// Times the engine's rows lost step with the store's changes and were rebuilt (a bug in the
+    /// bench if ever above 0; the order check reports it).
+    var desyncCount: Int { get }
     /// The text the cells in view show now, for engines whose cells can be read (view-based
     /// AppKit tables; the others draw their text themselves): checked against the store.
     func shownTexts() -> [(display: Int, column: Int, text: String)]
@@ -95,6 +98,7 @@ protocol Engine: AnyObject {
 }
 
 extension Engine {
+    var desyncCount: Int { 0 }
     func shownTexts() -> [(display: Int, column: Int, text: String)] { [] }
     var showsRows: Bool { true }
     var framePresented: (() -> Void)? {

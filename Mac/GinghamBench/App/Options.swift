@@ -23,6 +23,8 @@
 //    --swiftui-diff-moves      the tuned SwiftUI Table gets reordered rows without a new .id (SwiftUI diffs the moves)
 //    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout)
 //    --check-formats           prints where the other engines' number text differs from Gingham's
+//    --self-test               replays order book changes into every engine (no network) and checks their order
+//    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
 //    --calibrate-feed MODEL    prints the row changes a second a generated feed makes (trades, orders, instruments)
 //    --cycle N                 window mode: switch engines every N seconds (for recording); --quit after a round
 //
@@ -47,6 +49,8 @@ struct Options {
     var summarize: String?
     var markdown: String?
     var checkFormats = false
+    var selfTest = false
+    var crashReports = false
     var cycle: Double?
     var quitAfterCycle = false
     var isChild = false
@@ -109,6 +113,8 @@ struct Options {
             case "--summarize": options.summarize = try value(argument)
             case "--markdown": options.markdown = try value(argument)
             case "--check-formats": options.checkFormats = true
+            case "--self-test": options.selfTest = true
+            case "--crash-reports": options.crashReports = true
             case "--cycle": options.cycle = try number(argument)
             case "--quit": options.quitAfterCycle = true
             case "--child": options.isChild = true
@@ -136,6 +142,7 @@ struct Options {
         if let rows { arguments += ["--rows", String(rows)] }
         if ginghamExtras { arguments.append("--gingham-extras") }
         if swiftUIDiffsMoves { arguments.append("--swiftui-diff-moves") }
+        if crashReports { arguments.append("--crash-reports") }
         return arguments
     }
 }
