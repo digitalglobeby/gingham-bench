@@ -32,6 +32,8 @@ final class TunedRows {
     /// A background sort's number: a newer request makes an older result stale.
     private var sortGeneration = 0
     private(set) var isSorting = false
+    /// The keys of the last sorted columns of a static store (see `SortKeyCache`).
+    private let sortKeys = SortKeyCache()
 
     var count: Int { source?.rowCount ?? 0 }
     var isSorted: Bool { liveOrder != nil }
@@ -184,7 +186,7 @@ final class TunedRows {
         let generation = sortGeneration
         isSorting = true
         Task { @MainActor in
-            let order = await LiveOrder.make(source, sort: sort)
+            let order = await LiveOrder.make(source, sort: sort, cache: self.sortKeys)
             guard generation == self.sortGeneration else { return }
             self.liveOrder = order
             self.isSorting = false

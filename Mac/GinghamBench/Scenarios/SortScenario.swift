@@ -8,9 +8,11 @@
 //  "Account" (`sort-text-account`: nearly every row a different name with a number, so the
 //  numeric-aware Finder order matters). Generated from a fixed seed.
 //
-//  Measured by the runner (`SortRun`): three times from the unsorted order, the time from the
+//  Measured by the runner: three sorts, each from the unsorted order: the column (the first sort
+//  in the process, cold), the other text column (account or pair), the column again (a repeated
+//  sort: what a table or app kept from the first may make it faster). For each, the time from the
 //  request to the first screen frame with the new order, the frames that came meanwhile and the
-//  longest gap between them, and whether the order shown is Finder's
+//  longest gap between them; at the end, whether the order shown is Finder's
 //  (`localizedStandardCompare`) all the way down.
 //
 
@@ -99,6 +101,12 @@ final class SortScenario: Scenario {
     }
 
     var sortSpec: SortSpec { SortSpec(column: sortColumn, ascending: true) }
+
+    /// The sorts of a run: the column (cold), the other text column, the column again.
+    var sequence: [(step: String, spec: SortSpec)] {
+        let other = SortSpec(column: sortColumn == 7 ? 1 : 7, ascending: true)
+        return [("first", sortSpec), ("other", other), ("again", sortSpec)]
+    }
 
     var subtitle: String {
         "\(rows.formatted()) trades · sorted by \(sortColumn == 7 ? "account (nearly all distinct)" : "pair (about 500 distinct)") on request"

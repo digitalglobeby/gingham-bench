@@ -23,6 +23,13 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
     /// after another).
     private var columnIndex: [String: Int] = [:]
     private var lastColumn: (id: String, index: Int) = ("", -1)
+    /// The columns' kinds, and the store's arrays for the sort values: read as the tuned AppKit
+    /// engines' sorts read them, a column's array from the store in one call (`ColumnArrays`),
+    /// then by index. A static store's text columns are taken once (it never changes, so nothing
+    /// is copied); a live store's are read row by row, one call each.
+    private var kinds: [ColumnKind] = []
+    private var arrays: ColumnArrays?
+    private var staticTexts: [[String]?] = []
     private var presented: (() -> Void)?
     var view: NSView { table }
 
@@ -33,6 +40,9 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
     func load(_ source: BenchSource, sort: [SortSpec]) {
         self.source = source
         let specs = source.columns
+        kinds = specs.map(\.kind)
+        arrays = source as? ColumnArrays
+        staticTexts = specs.indices.map { index in source.isStatic && specs[index].kind == .text ? arrays?.textArray(index) : nil }
         columnIndex = Dictionary(uniqueKeysWithValues: specs.enumerated().map { ($1.id, $0) })
         lastColumn = ("", -1)
         table.rowHeight = 20
@@ -114,14 +124,21 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
         }
     }
 
-    /// Times sort by their numbers (they're shown as text).
+    /// The value a row sorts by, asked for every row of a sort: one read of the store (times sort
+    /// by their numbers, though they're shown as text).
     func tableView(_ tableView: GHTableView, sortValueFor column: GHTableColumn, row: Int) -> GHCellValue {
         let index = index(of: column)
-        guard let source, index >= 0, source.columns[index].kind == .time, row < source.rowCount else {
-            return self.tableView(tableView, valueFor: column, row: row)
+        guard index >= 0 else { return .empty }
+        switch kinds[index] {
+        case .text:
+            if let texts = staticTexts[index] { return row < texts.count ? .text(texts[row]) : .empty }
+            guard let source, row < source.rowCount else { return .empty }
+            return .text(source.text(row, index))
+        case .number, .percent, .time:
+            guard let source, row < source.rowCount else { return .empty }
+            let number = source.number(row, index)
+            return number.isNaN ? .empty : .number(number)
         }
-        let time = source.number(row, index)
-        return time.isNaN ? .empty : .number(time)
     }
 
     func tableView(_ tableView: GHTableView, identifierForRow row: Int) -> AnyHashable? {
@@ -129,18 +146,22 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
         return source.identifier(row)
     }
 
+    /// A range of rows (a whole column for a sort): the column's array in one call, as the tuned
+    /// engines' sorts read it.
     func tableView(_ tableView: GHTableView, numbersFor column: GHTableColumn, rows: Range<Int>,
                    into values: UnsafeMutableBufferPointer<Double>) -> Bool {
         let index = index(of: column)
-        guard let source, index >= 0, source.columns[index].isNumeric, rows.upperBound <= source.rowCount else { return false }
-        for (offset, row) in rows.enumerated() { values[offset] = source.number(row, index) }
+        guard index >= 0, kinds[index] != .text, let numbers = arrays?.numberArray(index), rows.upperBound <= numbers.count else { return false }
+        numbers.withUnsafeBufferPointer { numbers in
+            _ = values.update(fromContentsOf: numbers[rows])
+        }
         return true
     }
 
     func tableView(_ tableView: GHTableView, numbersFor column: GHTableColumn, atRows rows: UnsafeBufferPointer<Int>,
                    into values: UnsafeMutableBufferPointer<Double>) -> Bool {
         let index = index(of: column)
-        guard let source, index >= 0, source.columns[index].isNumeric else { return false }
+        guard let source, index >= 0, kinds[index] != .text else { return false }
         let count = source.rowCount
         for (offset, row) in rows.enumerated() { values[offset] = row >= 0 && row < count ? source.number(row, index) : .nan }
         return true

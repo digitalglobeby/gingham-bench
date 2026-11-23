@@ -126,9 +126,12 @@ check the weight used and wait for the next minute when their requests wouldn't 
 `binance.com` is closed, use `--binance-domain binance.us`.
 
 **`sort-text`** and **`sort-text-account`** are a static table of 1,000,000 trades, sorted by a
-text column as a click on its header sorts it, three times from the unsorted order: by pair
-(about 500 distinct pairs, the busiest far more frequent, as in the first measurement) or by
-account (nearly every row a different name with a number, like "Zürich Partners 48213"). Text is
+text column as a click on its header sorts it: by pair (about 500 distinct pairs, the busiest far
+more frequent, as in the first measurement) or by account (nearly every row a different name with
+a number, like "Zürich Partners 48213"). Each run's process sorts three times, each from the
+unsorted order: by its column (the first sort in the process, cold), by the other text column, by
+its column again (a repeated sort, which what a table or app kept from the first may speed up:
+the tuned engines keep each sorted column's keys, below); the results show the three apart. Text is
 sorted in Finder's order (`localizedStandardCompare`: numbers by value, case and accents as
 Finder does), and each run checks that the order shown is Finder's all the way down.
 
@@ -171,7 +174,10 @@ while the pointer is over the table (so rows don't move under a user's pointer);
 that off (`pausesLiveSortUnderPointer = false`), because the other engines re-sort wherever the
 pointer is and a pointer resting on the window would otherwise spare Gingham the re-sorting. (The
 screen meter found it: with the pointer over the window, Gingham's sorted rows didn't move during
-the feed.) Its rows are drawn by the GPU.
+the feed.) The values a sort asks for are read as the tuned engines' sorts read the store: a
+row's sort value (`sortValueFor`) is one read (a static table's text column is taken from the store
+once, as the tuned engines take it), a range of rows' numbers is copied from the column's array in
+one call; whatever Gingham itself keeps between sorts is its own. Its rows are drawn by the GPU.
 [`GinghamEngine.swift`](Mac/GinghamBench/Engines/GinghamEngine.swift)
 
 ### NSTableView
@@ -212,7 +218,11 @@ What an AppKit expert would write for live data, every choice aimed at doing les
   (500 for the pair column, so that part is quick; nearly a million for the account column), then
   the rows are sorted by rank on all cores. The texts are compared on one thread:
   `localizedStandardCompare` doesn't get faster across cores (measured: 4 threads 1.2 times faster
-  than one, 8 threads slower than one).
+  than one, 8 threads slower than one). The keys of a static table's last 4 sorted columns (each
+  row's key and the distinct texts' ranks) are kept, as an expert app keeps what costs most and
+  stays right while the rows don't change: sorting by a column again only sorts the rows by them.
+  The finished orders aren't kept. The other tuned engines (cell-based, NSCollectionView, SwiftUI
+  tuned) sort the same way; the typical NSTableView and SwiftUI Table sort from scratch every time.
 
 Where its main thread goes, from a profile (`sample`, 4 seconds of `trade-feed`): Core Animation's
 commit 47%, inside it 44% displaying layers, of which a quarter of the main thread is AppKit drawing
@@ -426,7 +436,9 @@ thermal state, build configuration) and the date.
 - **Low Power Mode off, on power, other apps closed**, nothing building, indexing or syncing,
   and don't touch the Mac during a run: the window floats above other windows (a covered window
   isn't drawn), and a busy machine lowers every number. The app turns off App Nap while
-  measuring, for every engine alike.
+  measuring, for every engine alike, and saves no window state (`isRestorable = false`, no
+  `ApplePersistence`): AppKit would write it about 11 seconds into a run, holding the main thread
+  15–20 ms.
 - **The window's size** decides how many cells are in view, the work every view-based engine does
   per frame: 1000 × 640 points of table by default, the same for all (`--window`). Each run records
   the rows and columns the engine laid out for its window (NSTableView's rows and columns in its
@@ -508,7 +520,9 @@ columns too, marked where the recording slowed the run.
 ### Sorting 1,000,000 rows by a text column
 
 Time to the sorted order on the screen · longest stall meanwhile (the screen kept drawing when it
-stays near 8 ms). By pair has about 500 distinct texts, by account nearly a million.
+stays near 8 ms). By pair has about 500 distinct texts, by account nearly a million. (Measured
+before the cold and repeated sorts were told apart: the median of three sorts of the same column in
+one process. The next session reports them apart.)
 
 | Engine | By pair | By account |
 | --- | --- | --- |

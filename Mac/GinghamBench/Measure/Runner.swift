@@ -438,15 +438,16 @@ final class ChildRun {
         let stepTimeout = 60.0
         var partial = template
         partial?.loadSeconds = loadedAt.map { $0 - loadStart }
-        for round in 1...3 {
-            ui.bar.subtitle.stringValue = "\(scenario.subtitle) · sort \(round) of 3"
+        for (round, (step, spec)) in zip(1..., scenario.sequence) {
+            let title = scenario.source.columns[spec.column].title.lowercased()
+            ui.bar.subtitle.stringValue = "\(scenario.subtitle) · sort \(round) of 3: by \(title)" + (step == "again" ? " again" : "")
             watchdog?.step(deadline: CACurrentMediaTime() + stepTimeout, note: "unsorting before sort \(round) didn't reach the screen within \(Int(stepTimeout)) s", partial: partial)
             engine.sort(by: [])
             while engine.isSorting { await sleep(5) }
             _ = await settle(timeout: 30)
             watchdog?.step(deadline: CACurrentMediaTime() + stepTimeout, note: "sort \(round) didn't reach the screen within \(Int(stepTimeout)) s", partial: partial)
             let start = CACurrentMediaTime()
-            engine.sort(by: [scenario.sortSpec])
+            engine.sort(by: [spec])
             while engine.isSorting { await sleep(1) }
             let ready = CACurrentMediaTime()
             while (meter.data.lastFrame ?? 0) <= ready { await sleep(1) }
@@ -457,7 +458,7 @@ final class ChildRun {
                 gap = max(gap, time - previous)
                 previous = time
             }
-            sorts.append(SortNumbers(seconds: shown - start, framesDuring: frames.filter { $0 < shown }.count, longestFrameGapMs: gap * 1000))
+            sorts.append(SortNumbers(step: step, column: scenario.source.columns[spec.column].id, seconds: shown - start, framesDuring: frames.filter { $0 < shown }.count, longestFrameGapMs: gap * 1000))
             partial?.sorts = sorts
             await sleep(300)
         }
@@ -706,7 +707,7 @@ enum Orchestrator {
 
     private static func summaryNumbers(_ result: RunResult) -> String {
         if let sorts = result.sorts {
-            return sorts.map { String(format: "%.2f s (%d frames, stall %.0f ms)", $0.seconds, $0.framesDuring, $0.longestFrameGapMs) }
+            return sorts.map { ($0.step.map { "\($0) " } ?? "") + ($0.column.map { "(\($0)) " } ?? "") + String(format: "%.2f s (%d frames, stall %.0f ms)", $0.seconds, $0.framesDuring, $0.longestFrameGapMs) }
                 .joined(separator: ", ") + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")
         }
         guard let numbers = result.numbers else { return result.status }

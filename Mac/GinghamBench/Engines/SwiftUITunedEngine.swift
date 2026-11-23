@@ -203,6 +203,8 @@ final class SwiftUITunedEngine: Engine {
     /// unsorted, the model's rows are in the store's order and this stays empty.
     private var storeRows: [SlotRow] = []
     private var liveOrder: LiveOrder?
+    /// The keys of the last sorted columns of a static store (see `SortKeyCache`).
+    private let sortKeys = SortKeyCache()
     private var depth = 0
     private var isSettingSortOrder = false
     private var sortGeneration = 0
@@ -372,7 +374,7 @@ final class SwiftUITunedEngine: Engine {
         }
         isSorting = true
         Task { @MainActor in
-            let order = await LiveOrder.make(source, sort: sort)
+            let order = await LiveOrder.make(source, sort: sort, cache: self.sortKeys)
             guard generation == self.sortGeneration else { return }
             self.liveOrder = order
             self.model.rows = self.displayed()

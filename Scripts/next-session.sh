@@ -3,7 +3,7 @@
 # Scripts/run-all.sh call: it builds Release, checks the isolation, runs the self-test and writes
 # results/<date>.jsonl and .md, so each step has its own files.
 #
-#   Scripts/next-session.sh                 steps 1–3 on the MacBook's display (about 3 h 15 min)
+#   Scripts/next-session.sh                 steps 1–3 on the MacBook's display (about 3 h 20 min)
 #   Scripts/next-session.sh 1               one step (1, 2 or 3)
 #   Scripts/next-session.sh 4k NAME WxH     step 4, at the very end: the 4K monitor (60 Hz), NAME a part of
 #                                           its name, WxH its "looks like" size less about 140 × 140 points
@@ -18,7 +18,7 @@
 # Estimates from the 2026-11-23 session (84 minutes for the default set, 37 for three scenarios at
 # 2040 × 1080, each with its screen and trace passes):
 #   1. Default window (1000 × 640): every scenario, the new wide-trades too, 3 runs of 10 s, the
-#      screen pass and the trace pass on live-trades and order-book. ~95 min. As the Gingham version
+#      screen pass and the trace pass on live-trades and order-book. ~100 min (each sort run also sorts by the other column). As the Gingham version
 #      changes, the whole set is rerun; this also redoes the tuned NSTableView's live-trades screen
 #      run, invalid last time (the window was covered).
 #   2. Full size (2040 × 1080): the four generated live scenarios (live-trades, order-book,

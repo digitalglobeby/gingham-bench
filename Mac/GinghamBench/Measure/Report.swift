@@ -84,6 +84,11 @@ nonisolated struct SystemFrames: Codable, Sendable {
 }
 
 nonisolated struct SortNumbers: Codable, Sendable {
+    /// "first" (the first sort in the process, cold), "other" (the other text column), "again"
+    /// (the first column again); nil in results from before (three sorts of the same column).
+    var step: String?
+    /// The column sorted by.
+    var column: String?
     /// From the request to the first screen frame with the new order.
     var seconds: Double
     /// Display-link callbacks the main thread got to meanwhile.
@@ -222,8 +227,8 @@ nonisolated enum Report {
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
             if id?.isSort == true {
-                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
-                lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+                lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
+                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             } else {
                 lines.append("| Engine | Frames with new data/s (max \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | CPU energy | Memory | Order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
@@ -262,15 +267,23 @@ nonisolated enum Report {
                 let checks = ok.compactMap(\.orderCheck)
                 let order = checks.isEmpty ? "—" : checks.allSatisfy { $0 == "ok" } ? "ok" : "WRONG: " + (checks.first { $0 != "ok" } ?? "")
                 if id?.isSort == true {
-                    let sorts = ok.flatMap { $0.sorts ?? [] }
+                    // By step (results from before the steps: the first sort, then the same column again).
+                    let steps = ok.flatMap { run in (run.sorts ?? []).enumerated().map { ($1.step ?? ($0 == 0 ? "first" : "again"), $1) } }
+                    func of(_ step: String) -> [SortNumbers] { steps.filter { $0.0 == step }.map(\.1) }
+                    let sorts = steps.map(\.1)
+                    let (first, other, again) = (of("first"), of("other"), of("again"))
+                    func time(_ sorts: [SortNumbers]) -> String { sorts.isEmpty ? "—" : median(sorts.map(\.seconds), digits: 2, suffix: " s") }
+                    func pair(_ values: ([SortNumbers]) -> [Double], suffix: String = "") -> String {
+                        [first, again].map { $0.isEmpty ? "—" : median(values($0), suffix: suffix) }.joined(separator: " · ")
+                    }
                     let quietScreen = screenRuns.compactMap(\.quietScreenUpdatesPerSecond) + ok.compactMap(\.quietScreenUpdatesPerSecond)
                     let quietCallbacks = allRuns.compactMap(\.quietCallbacksPerSecond)
                     let quiet = quietScreen.isEmpty ? "—" : "\(median(quietScreen)) · \(median(quietCallbacks))"
                     guard !sorts.isEmpty else {
-                        lines.append("| \(title) | \(failure ?? "—") | | | | | \(runs.count) |")
+                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | \(runs.count) |")
                         continue
                     }
-                    lines.append("| \(title) | \(median(sorts.map(\.seconds), digits: 2, suffix: " s")) | \(median(sorts.map { Double($0.framesDuring) })) | \(median(sorts.map(\.longestFrameGapMs), suffix: " ms")) | \(order) | \(quiet) | \(runCount) |")
+                    lines.append("| \(title) | \(time(first)) | \(time(other)) | \(time(again)) | \(pair { $0.map { Double($0.framesDuring) } }) | \(pair({ $0.map(\.longestFrameGapMs) }, suffix: " ms")) | \(order) | \(quiet) | \(runCount) |")
                 } else {
                     let numbers = ok.compactMap(\.numbers)
                     guard !numbers.isEmpty else {
@@ -298,6 +311,11 @@ nonisolated enum Report {
                 }
             }
             lines.append("")
+            if id?.isSort == true {
+                lines += ["Three sorts in each run's process, each from the unsorted order and timed to the first frame showing the",
+                          "new order: the column (the first sort in the process, cold), the other text column, the first column again (a",
+                          "repeated sort: the tuned engines keep the keys of the last sorted columns, the typical ones sort from scratch).", ""]
+            }
             if id?.isSort != true {
                 lines += ["Frames with new data: how many times a second the table's picture actually changed (at least one visible",
                           "value new); like frames a second, but a frozen table scores 0, not \(first.machine.refreshRate).", ""]

@@ -90,6 +90,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
+// No saved window state at all (with the window not restorable, see BenchWindow): AppKit's
+// persistent UI would otherwise write it during runs, on the main thread.
+UserDefaults.standard.register(defaults: ["ApplePersistence": false, "NSQuitAlwaysKeepsWindows": false])
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

@@ -14,6 +14,8 @@
 //    and merged back into the order (O(rows + changed × log changed), not a full sort). A full
 //    sort of a static table runs on all cores in the background (`ParallelSort`) while the
 //    table keeps showing the old order. Used by "NSTableView, tuned" and "NSCollectionView".
+//    The keys of a static table's last sorted columns are kept (`SortKeyCache`), so sorting
+//    by a column again only sorts.
 //
 
 import Foundation
@@ -105,6 +107,30 @@ protocol ColumnArrays {
     func textArray(_ column: Int) -> [String]?
 }
 
+/// A sorted column's keys as `LiveOrder` makes them: every row's key and, for text, the
+/// distinct texts' ranks.
+nonisolated struct ColumnKeys: Sendable {
+    var keys: [Double]
+    var ranks: [String: Double]
+    var rankedTexts: [String]
+}
+
+/// The keys of a static table's recently sorted columns, as an expert app keeps them: computing
+/// a column's keys (ranking its texts in Finder's order) is most of a sort, and they stay right
+/// as long as the rows don't change, so sorting by a column again only sorts the rows by them.
+/// The finished orders aren't kept (Gingham doesn't keep them either). The last 4 columns.
+final class SortKeyCache {
+    private var entries: [(spec: SortSpec, keys: ColumnKeys)] = []
+
+    func keys(for spec: SortSpec) -> ColumnKeys? { entries.first { $0.spec == spec }?.keys }
+
+    func keep(_ keys: ColumnKeys, for spec: SortSpec) {
+        entries.removeAll { $0.spec == spec }
+        entries.insert((spec, keys), at: 0)
+        if entries.count > 4 { entries.removeLast() }
+    }
+}
+
 /// The order of rows sorted by the app, kept up to date by placing only the changed rows.
 final class LiveOrder {
     /// Display row → store row.
@@ -130,15 +156,21 @@ final class LiveOrder {
     /// The rows sorted. With `parallel`, the keys of text columns are ranked and the rows
     /// sorted on all cores (call it off the main thread for a static store: see `make`).
     /// `identity` empty: the rows' indexes are their identity (a static store).
-    nonisolated init(sort: [SortSpec], columns: [ColumnSpec], numbers: [[Double]?], texts: [[String]?], identity: [Int], count: Int) {
+    /// `known`: keys kept from an earlier sort of a column (by sort spec), used as they are.
+    nonisolated init(sort: [SortSpec], columns: [ColumnSpec], numbers: [[Double]?], texts: [[String]?], identity: [Int], count: Int,
+                     known: [ColumnKeys?] = []) {
         self.sort = sort
         self.identity = identity
         keys = []
         ranks = []
         rankedTexts = []
-        for spec in sort {
+        for (index, spec) in sort.enumerated() {
             let sign = spec.ascending ? 1.0 : -1.0
-            if columns[spec.column].kind == .text, let texts = texts[spec.column] {
+            if index < known.count, let known = known[index], known.keys.count == count {
+                keys.append(known.keys)
+                ranks.append(known.ranks)
+                rankedTexts.append(known.rankedTexts)
+            } else if columns[spec.column].kind == .text, let texts = texts[spec.column] {
                 let (distinct, rankOf) = Self.rank(texts)
                 ranks.append(rankOf)
                 rankedTexts.append(distinct)
@@ -159,19 +191,29 @@ final class LiveOrder {
         isPending = [Bool](repeating: false, count: count)
     }
 
+    /// The keys of the `index`th sort column.
+    func columnKeys(_ index: Int) -> ColumnKeys { ColumnKeys(keys: keys[index], ranks: ranks[index], rankedTexts: rankedTexts[index]) }
+
     /// A source's rows sorted: in the background for a static store (the table keeps showing
     /// the old order meanwhile), on the main thread for a live one (its rows change under it).
-    static func make(_ source: BenchSource, sort: [SortSpec]) async -> LiveOrder {
+    /// A static store's columns' keys are taken from `cache` when an earlier sort kept them, and
+    /// kept there.
+    static func make(_ source: BenchSource, sort: [SortSpec], cache: SortKeyCache? = nil) async -> LiveOrder {
         let columns = source.columns
         let arrays = source as? ColumnArrays
         let numbers = columns.indices.map { column in sort.contains { $0.column == column } ? arrays?.numberArray(column) : nil }
         let texts = columns.indices.map { column in sort.contains { $0.column == column } ? arrays?.textArray(column) : nil }
         let count = source.rowCount
         if source.isStatic {
+            let known = sort.map { cache?.keys(for: $0) }
             // (A static store's rows are their identity: nothing to read on the main thread.)
-            return await Task.detached(priority: .userInitiated) {
-                LiveOrder(sort: sort, columns: columns, numbers: numbers, texts: texts, identity: [], count: count)
+            let order = await Task.detached(priority: .userInitiated) {
+                LiveOrder(sort: sort, columns: columns, numbers: numbers, texts: texts, identity: [], count: count, known: known)
             }.value
+            if let cache {
+                for (index, spec) in sort.enumerated() { cache.keep(order.columnKeys(index), for: spec) }
+            }
+            return order
         }
         return LiveOrder(sort: sort, columns: columns, numbers: numbers, texts: texts, identity: (0..<count).map(source.identifier), count: count)
     }
