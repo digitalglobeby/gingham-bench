@@ -18,6 +18,10 @@ nonisolated struct Machine: Codable, Sendable {
     var gingham: String
     var screen: String
     var refreshRate: Int
+    /// The screen's size in points and its scale (the display mode: on a 16" MacBook Pro
+    /// 2056×1329 points at 2× is "More Space").
+    var screenPoints: String?
+    var screenScale: Double?
     var lowPowerMode: Bool
     var thermalState: String
     var build: String
@@ -42,8 +46,9 @@ nonisolated struct Machine: Codable, Sendable {
                        memoryGB: Int(info.physicalMemory / 1_073_741_824),
                        macOS: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
                        gingham: GHTableView.version, screen: screen?.localizedName ?? "?",
-                       refreshRate: screen?.maximumFramesPerSecond ?? 0, lowPowerMode: info.isLowPowerModeEnabled,
-                       thermalState: thermal, build: build)
+                       refreshRate: screen?.maximumFramesPerSecond ?? 0,
+                       screenPoints: screen.map { "\(Int($0.frame.width))x\(Int($0.frame.height))" }, screenScale: screen.map { Double($0.backingScaleFactor) },
+                       lowPowerMode: info.isLowPowerModeEnabled, thermalState: thermal, build: build)
     }
 
     static func thermalName(_ state: Int) -> String {
@@ -114,8 +119,9 @@ nonisolated struct RunResult: Codable, Sendable {
     /// The measured window in wall-clock time (seconds since 1970) and the process: to find the
     /// window in a system trace (`--trace-pass`, `Scripts/trace-frames.py`).
     var windowStartEpoch: Double?
-    /// The table's size in points (`--window`).
+    /// The table's size in points (`--window`) and in pixels.
     var window: String?
+    var windowPixels: String?
     var windowEndEpoch: Double?
     var pid: Int32?
     /// From a system trace of the run (`Scripts/trace-frames.py`).
@@ -172,10 +178,31 @@ nonisolated enum Report {
         return date.formatted(date: .abbreviated, time: .shortened)
     }
 
+    /// For results recorded before the window and the display mode were (`--summarize` with
+    /// `--window` and `--display`).
+    nonisolated(unsafe) static var fallbackWindow: String?
+    nonisolated(unsafe) static var fallbackDisplay: String?
+
+    private static func times(_ size: String) -> String { size.replacingOccurrences(of: "x", with: " × ") }
+
     static func markdown(_ results: [RunResult]) -> String {
         guard let first = results.first else { return "No results.\n" }
         var lines = ["# Gingham Bench results", "",
                      "\(Self.localDate(first.date)) · \(first.machine.line)", ""]
+        // The table's window and the display mode.
+        let windows = Set(results.compactMap(\.window))
+        let window = windows.count == 1 ? windows.first : fallbackWindow
+        let pixels = results.compactMap(\.windowPixels).first ?? window.flatMap { size -> String? in
+            let parts = size.split(separator: "x").compactMap { Double($0) }
+            guard parts.count == 2, let scale = first.machine.screenScale ?? (fallbackDisplay?.contains("2×") == true ? 2 : nil) else { return nil }
+            return "\(Int(parts[0] * scale))x\(Int(parts[1] * scale))"
+        }
+        let display = first.machine.screenPoints.map { "\(times($0)) points at \(Int(first.machine.screenScale ?? 1))×, \(first.machine.refreshRate) Hz" } ?? fallbackDisplay
+        var setup: [String] = []
+        if let window { setup.append("Table window \(times(window)) points" + (pixels.map { " (\(times($0)) pixels)" } ?? "")) }
+        if windows.count > 1 { setup.append("several window sizes: \(windows.sorted().map(times).joined(separator: ", ")) points") }
+        if let display { setup.append("display \(display)") }
+        if !setup.isEmpty { lines += [setup.joined(separator: " · "), ""] }
         let machines = Set(results.map(\.machine.line))
         if machines.count > 1 { lines += ["Note: these runs come from \(machines.count) different setups.", ""] }
         let scenarios = ScenarioID.allCases.map(\.rawValue).filter { id in results.contains { $0.scenario == id } }

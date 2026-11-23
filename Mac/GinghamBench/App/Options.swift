@@ -21,7 +21,8 @@
 //    --window WxH              the window's content size (1000x640)
 //    --gingham-extras          Gingham also highlights changes and shows a summary row
 //    --swiftui-diff-moves      the tuned SwiftUI Table gets reordered rows without a new .id (SwiftUI diffs the moves)
-//    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout)
+//    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout);
+//                              for results without them, --window WxH and --display TEXT give the header's sizes
 //    --check-formats           prints where the other engines' number text differs from Gingham's
 //    --self-test               replays order book changes into every engine (no network) and checks their order
 //    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
@@ -53,6 +54,8 @@ struct Options {
     var swiftUIDiffsMoves = false
     var summarize: String?
     var markdown: String?
+    var windowGiven = false
+    var display: String?
     var checkFormats = false
     var selfTest = false
     var crashReports = false
@@ -119,10 +122,12 @@ struct Options {
                 let parts = try value(argument).split(separator: "x").compactMap { Double($0) }
                 guard parts.count == 2 else { throw ScenarioError("--window WxH") }
                 options.windowSize = NSSize(width: parts[0], height: parts[1])
+                options.windowGiven = true
             case "--gingham-extras": options.ginghamExtras = true
             case "--swiftui-diff-moves": options.swiftUIDiffsMoves = true
             case "--summarize": options.summarize = try value(argument)
             case "--markdown": options.markdown = try value(argument)
+            case "--display": options.display = try value(argument)
             case "--check-formats": options.checkFormats = true
             case "--self-test": options.selfTest = true
             case "--crash-reports": options.crashReports = true

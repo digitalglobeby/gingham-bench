@@ -48,6 +48,8 @@ if options.selfTest {
 }
 
 if let path = options.summarize {
+    if options.windowGiven { Report.fallbackWindow = "\(Int(options.windowSize.width))x\(Int(options.windowSize.height))" }
+    Report.fallbackDisplay = options.display
     let markdown = Report.markdown(Report.read(path))
     if let output = options.markdown { try? markdown.write(toFile: output, atomically: true, encoding: .utf8) } else { print(markdown) }
     exit(0)

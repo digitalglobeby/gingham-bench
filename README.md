@@ -427,11 +427,11 @@ thermal state, build configuration) and the date.
 
 Measured on 2026-11-23 with `Scripts/run-all.sh` (3 runs of 10 s each, medians), on a MacBook Pro
 (MacBookPro18,2, Apple M1 Max, 10 cores, 32 GB), macOS 27.2.1, Gingham 1.1.1, the built-in display
-at 120 Hz, Release build. The full tables (every column, lowest and highest of the runs) and the
+at 120 Hz in its "More Space" mode (2056 × 1329 points at 2×), Release build. The full tables (every column, lowest and highest of the runs) and the
 raw JSON lines: [default window](results/2026-11-23-1146.md) ([JSON](results/2026-11-23-1146.jsonl)),
 [2040 × 1080](results/2026-11-23-1358.md) ([JSON](results/2026-11-23-1358.jsonl)).
 
-### Live data, the default window (1000 × 640 points of table)
+### Live data, the default window (1000 × 640 points of table, 2000 × 1280 pixels)
 
 Screen updates a second (the table's pixels, measured from outside) · main thread busy · data age
 (median, from the change to the frame that applied it).
@@ -452,7 +452,7 @@ cell-based NSTableView apply every frame's changes (118–119 updates applied a 
 fewer. The tuned NSTableView's screen-meter run was invalid (the window was covered); its traced
 run read 50 screen updates a second.
 
-### Live data, a large window (2040 × 1080 points of table)
+### Live data, a large window (2040 × 1080 points of table, 4080 × 2160 pixels)
 
 At this size the trace isn't reliable (the Instruments recording held every engine near 60 frames a
 second, Gingham's presented frames too) and neither is the screen meter for this purpose (in its
@@ -495,7 +495,7 @@ updates applied (Gingham: presented) · main thread busy · data age.
 
 | Engine | Tickers | Order books (~55,000 levels) |
 | --- | --- | --- |
-| Gingham | 39 · 19% · 4 ms | 11 presented · 9% · 5 ms |
+| Gingham | 39 · 19% · 4 ms | 10 presented · 9% · 5 ms |
 | NSTableView | 26 · 94% · 12 ms | 10 applied · 87% · 32 ms |
 | NSTableView, tuned | 36 · 36% · 4 ms | 18 applied · 31% · 4 ms |
 | NSTableView, cell-based | 43 · 43% · 4 ms | 22 applied · 22% · 6 ms |

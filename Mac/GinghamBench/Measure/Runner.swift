@@ -174,11 +174,15 @@ final class ChildRun {
     }
 
     private func makeTemplate(_ scenario: Scenario) -> RunResult {
-        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, pass: options.pass,
+        var result = RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, pass: options.pass,
                   status: "ok", note: nil, rows: scenario.source.rowCount, warmup: options.warmup(for: scenarioID), loadSeconds: nil,
                   nominalChangesPerSecond: scenario.nominalChangesPerSecond, numbers: nil,
                   sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
                   date: ISO8601DateFormatter().string(from: Date()))
+        let scale = ui.window.backingScaleFactor
+        result.window = "\(Int(options.windowSize.width))x\(Int(options.windowSize.height))"
+        result.windowPixels = "\(Int(options.windowSize.width * scale))x\(Int(options.windowSize.height * scale))"
+        return result
     }
 
     private func begin(_ scenario: Scenario) {
@@ -302,7 +306,6 @@ final class ChildRun {
         result.windowStartEpoch = window.start + epochOffset
         result.windowEndEpoch = window.end + epochOffset
         result.pid = ProcessInfo.processInfo.processIdentifier
-        result.window = "\(Int(options.windowSize.width))x\(Int(options.windowSize.height))"
         let screenRunning = screenMeter?.state == "running"
         result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline, screen: screenRunning)
         result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
