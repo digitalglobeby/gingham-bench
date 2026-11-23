@@ -1,0 +1,4 @@
+# Derived data of Scripts/run-device.sh, its results, and Xcode's per-user state.
+build/
+results/
+xcuserdata/

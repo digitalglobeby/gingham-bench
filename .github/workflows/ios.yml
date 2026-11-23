@@ -1,0 +1,86 @@
+# Builds the iPhone and iPad bench (iOS/) for the iOS simulator with the
+# oldest and newest Xcode 26 releases, the first 26.4 release and the newest
+# Xcode, from the public Gingham binary package, without signing; on the
+# newest Xcode 26 it also runs every engine briefly in a simulator and checks
+# the app finishes (no measurement: frames are measured on a device). Runs
+# when iOS/ or Shared/ change on main, on pull requests, and by hand.
+name: iOS bench
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "iOS/**"
+      - "Shared/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "iOS/**"
+      - "Shared/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Xcode ${{ matrix.xcode }}
+    runs-on: ${{ matrix.runner }}
+    # Every job must pass (Gingham 1.1.1 builds with Xcode 26.0 and later).
+    # `may-fail` stays for a version that can't, with a comment why.
+    continue-on-error: ${{ matrix.may-fail }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - xcode: "26.0.1"
+            runner: macos-26
+            may-fail: false
+          - xcode: "26.3"
+            runner: macos-26
+            may-fail: false
+          - xcode: "26.4.1"
+            runner: macos-26
+            may-fail: false
+          - xcode: "26.6"
+            runner: macos-26
+            may-fail: false
+            smoke: true
+          - xcode: "27.2"
+            runner: xcode-27
+            may-fail: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode ${{ matrix.xcode }}
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode }}.app"
+          xcodebuild -version
+          swift --version
+      - name: Resolve the Gingham package
+        run: xcodebuild -resolvePackageDependencies -project iOS/GinghamBench.xcodeproj -scheme "Gingham Bench"
+      - name: Build the app and its UI tests for the iOS simulator (Release)
+        run: |
+          xcodebuild build-for-testing -project iOS/GinghamBench.xcodeproj -scheme "Gingham Bench" \
+            -configuration Release -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO -quiet
+      - name: Smoke run in a simulator
+        if: matrix.smoke
+        timeout-minutes: 15
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -I -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          print(next(device["udid"] for runtime, devices in sorted(runtimes.items(), reverse=True) if ".iOS-" in runtime
+                     for device in devices if device["name"].startswith("iPhone")))')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphonesimulator/GinghamBench.app"
+          xcrun simctl launch --console "$UDID" by.digitalglobe.gingham-bench \
+            -autoTest YES -runs 1 -rows 10000 -duration 2 -warmUp 1 -settle 1 -profiles steady -exitWhenDone YES | tee smoke.log
+          grep '^RESULT' smoke.log | cut -c1-200
+          grep -q '^BENCH_DONE' smoke.log
+          xcrun simctl shutdown "$UDID"
