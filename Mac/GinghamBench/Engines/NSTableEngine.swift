@@ -169,6 +169,19 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
     var isSorting: Bool { false }
     var displayedRowCount: Int { tableView.numberOfRows }
 
+    func shownTexts() -> [(display: Int, column: Int, text: String)] {
+        var texts: [(display: Int, column: Int, text: String)] = []
+        let visible = tableView.rows(in: tableView.visibleRect)
+        for row in visible.lowerBound ..< min(visible.upperBound, tableView.numberOfRows) {
+            for column in 0..<tableView.numberOfColumns {
+                if let field = tableView.view(atColumn: column, row: row, makeIfNecessary: false) as? NSTextField {
+                    texts.append((row, column, field.stringValue))
+                }
+            }
+        }
+        return texts
+    }
+
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard let source, index >= 0, index < source.rowCount else { return nil }
         return order?[index] ?? index

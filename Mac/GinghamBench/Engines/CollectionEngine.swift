@@ -197,6 +197,15 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     var isSorting: Bool { rows.isSorting }
     var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
 
+    func shownTexts() -> [(display: Int, column: Int, text: String)] {
+        var texts: [(display: Int, column: Int, text: String)] = []
+        for path in collectionView.indexPathsForVisibleItems() {
+            guard let item = collectionView.item(at: path) as? Item else { continue }
+            for (column, cell) in item.cells.enumerated() { texts.append((path.item, column, cell.stringValue)) }
+        }
+        return texts
+    }
+
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard index >= 0, index < rows.count else { return nil }
         let row = rows.sourceRow(atDisplay: index)

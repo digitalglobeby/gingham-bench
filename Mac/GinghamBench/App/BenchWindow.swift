@@ -65,7 +65,7 @@ final class Bar: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func update(updates count: Int, busy share: Double, callbacks: Int, age: Double?, refreshRate: Int) {
-        frames.stringValue = "\(count) updates/s"
+        frames.stringValue = "\(count) updates applied/s"
         busy.stringValue = "main thread \(Int((share * 100).rounded()))% busy"
         small.stringValue = (age.map { "data age \(Int(($0 * 1000).rounded())) ms · " } ?? "") + "\(callbacks) callbacks/s"
         let rate = max(refreshRate, 60)

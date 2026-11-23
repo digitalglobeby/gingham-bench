@@ -87,11 +87,15 @@ protocol Engine: AnyObject {
     /// The store's row shown at a place, and the rows shown, for checking an order.
     func sourceRow(atDisplayIndex index: Int) -> Int?
     var displayedRowCount: Int { get }
+    /// The text the cells in view show now, for engines whose cells can be read (view-based
+    /// AppKit tables; the others draw their text themselves): checked against the store.
+    func shownTexts() -> [(display: Int, column: Int, text: String)]
     /// Called when a frame drawn by the engine is on the screen, if the engine can tell (Gingham).
     var framePresented: (() -> Void)? { get set }
 }
 
 extension Engine {
+    func shownTexts() -> [(display: Int, column: Int, text: String)] { [] }
     var showsRows: Bool { true }
     var framePresented: (() -> Void)? {
         get { nil }

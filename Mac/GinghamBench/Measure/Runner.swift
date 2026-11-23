@@ -108,6 +108,9 @@ final class ChildRun {
     private var loadStart: CFTimeInterval = 0
     private var loadedAt: CFTimeInterval?
     private var window: (start: CFTimeInterval, end: CFTimeInterval)?
+    /// The table shown, the feed not started yet: the window server's GPU baseline.
+    private var baseline: ClosedRange<CFTimeInterval>?
+    private var feedStarted = false
     private var finished = false
     /// The window ended: the feed stops and the order shown is checked.
     private var verifying = false
@@ -214,12 +217,21 @@ final class ChildRun {
         }
         checkVisible(now)
         guard !scenarioID.isSort else { return }
-        guard loadedAt != nil else {
+        guard let loadedAt else {
             if engine.showsRows {
-                loadedAt = now
-                let start = now + options.warmup(for: scenarioID)
+                self.loadedAt = now
+                // Two seconds with the table shown and nothing changing (from a quarter second
+                // after it showed): the window server's GPU rate then is its baseline.
+                baseline = (now + 0.25)...(now + 2.25)
+                let start = now + 2.25 + options.warmup(for: scenarioID)
                 window = (start, start + options.seconds)
                 watchdog?.loaded(window: window)
+            }
+            return
+        }
+        guard feedStarted else {
+            if now >= loadedAt + 2.25 {
+                feedStarted = true
                 scenario.start()
             }
             return
@@ -233,7 +245,7 @@ final class ChildRun {
         guard var result = template, !finished, let scenario, let engine else { return }
         verifying = true
         result.loadSeconds = loadedAt.map { $0 - loadStart }
-        result.numbers = meter.data.summary(from: window.start, to: window.end)
+        result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline)
         let interruptions = meter.data.interruptions(in: (loadedAt ?? window.start)...window.end)
         if let first = interruptions.first {
             result.status = "invalid"
@@ -249,7 +261,8 @@ final class ChildRun {
             while engine.isSorting, CACurrentMediaTime() < deadline { await sleep(5) }
             await frames(2)
             result.rows = scenario.source.rowCount
-            result.orderCheck = engine.isSorting ? "still sorting 10 s after the feed stopped" : Self.checkOrder(engine, source: scenario.source, sort: scenario.sort)
+            result.orderCheck = engine.isSorting ? "still sorting 10 s after the feed stopped"
+                : Self.checkOrder(engine, source: scenario.source, sort: scenario.sort) ?? Self.checkShownText(engine, source: scenario.source) ?? "ok"
             write(result)
         }
     }
@@ -260,9 +273,22 @@ final class ChildRun {
         while meter.data.frames(in: start...CACurrentMediaTime()).count < count, CACurrentMediaTime() - start < 5 { await sleep(2) }
     }
 
+    /// The text of the cells in view, for engines that can tell (the view-based AppKit tables),
+    /// against what the store says now: an in-place update that went stale fails here. Nil: right.
+    static func checkShownText(_ engine: Engine, source: BenchSource) -> String? {
+        for shown in engine.shownTexts() {
+            guard let row = engine.sourceRow(atDisplayIndex: shown.display), row < source.rowCount else { continue }
+            let expected = BenchFormat.text(source, row: row, column: shown.column)
+            if shown.text != expected {
+                return "stale text at place \(shown.display), column \(source.columns[shown.column].id): \"\(shown.text)\", the store \"\(expected)\""
+            }
+        }
+        return nil
+    }
+
     /// Whether the engine shows every row of the store once, in the scenario's order (ties in
-    /// any order; unsorted: the store's order): "ok", or what's wrong.
-    static func checkOrder(_ engine: Engine, source: BenchSource, sort: [SortSpec]) -> String {
+    /// any order; unsorted: the store's order): nil, or what's wrong.
+    static func checkOrder(_ engine: Engine, source: BenchSource, sort: [SortSpec]) -> String? {
         let count = source.rowCount
         guard engine.displayedRowCount == count else { return "shows \(engine.displayedRowCount) rows of \(count)" }
         var seen = [Bool](repeating: false, count: count)
@@ -279,7 +305,7 @@ final class ChildRun {
             }
             previous = row
         }
-        return "ok"
+        return nil
     }
 
     private func finish(status: String, note: String?) {
@@ -466,8 +492,8 @@ enum Orchestrator {
                 .joined(separator: ", ") + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")
         }
         guard let numbers = result.numbers else { return result.status }
-        return String(format: "%.0f updates/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f)",
-                      numbers.updatesShownPerSecond, numbers.dataAgeP50Ms ?? .nan, numbers.dataAgeP99Ms ?? .nan, numbers.busyShare * 100,
+        return String(format: "%.0f updates applied/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f more than idle)",
+                      numbers.updatesAppliedPerSecond, numbers.dataAgeP50Ms ?? .nan, numbers.dataAgeP99Ms ?? .nan, numbers.busyShare * 100,
                       numbers.longestStallMs, numbers.callbacksPerSecond, numbers.changesPerSecond, numbers.cpuPercent ?? 0, numbers.gpuMsPerSecond ?? 0,
                       numbers.windowServerGPUMsPerSecond ?? 0)
             + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")

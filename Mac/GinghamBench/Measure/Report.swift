@@ -154,8 +154,8 @@ nonisolated enum Report {
                 lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Updates shown/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | Energy | Memory | Order | Runs |")
-                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+                lines.append("| Engine | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | Energy | Memory | Order | Runs |")
+                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             for engine in EngineKind.allCases.map(\.rawValue) {
                 let runs = ofScenario.filter { $0.engine == engine }
@@ -176,7 +176,7 @@ nonisolated enum Report {
                 } else {
                     let numbers = ok.compactMap(\.numbers)
                     guard !numbers.isEmpty else {
-                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | | | | | | \(runs.count) |")
+                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | | | | | | | \(runs.count) |")
                         continue
                     }
                     var changes = median(numbers.map(\.changesPerSecond))
@@ -184,18 +184,24 @@ nonisolated enum Report {
                         changes += " ⚠︎ \(Int(lowest / nominal * 100))% of the feed"
                     }
                     let ages = "\(median(numbers.compactMap(\.dataAgeP50Ms), suffix: " ms")) / \(median(numbers.compactMap(\.dataAgeP99Ms), suffix: " ms"))"
-                    lines.append("| \(title) | \(median(numbers.map(\.updatesShownPerSecond))) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
+                    let presented = numbers.compactMap(\.presentedPerSecond)
+                    let updates = median(numbers.map(\.updatesAppliedPerSecond)) + (presented.isEmpty ? "" : "; presented \(median(presented))*")
+                    lines.append("| \(title) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
                 }
             }
             lines.append("")
         }
         let hot = results.compactMap(\.numbers?.thermalState).filter { $0 != "nominal" && $0 != "fair" }
         if !hot.isEmpty { lines += ["⚠︎ \(hot.count) runs reached the thermal state \(Set(hot).sorted().joined(separator: ", ")): compare those with care.", ""] }
-        lines += ["Each value: the median of the runs (lowest–highest). Updates shown/s: display-link callbacks that applied new data",
-                  "(at most the screen's refresh rate). Data age: from generation (Binance: arrival) to the callback that applied it.",
+        lines += ["Each value: the median of the runs (lowest–highest). Updates applied/s: display-link callbacks that applied new data",
+                  "(at most the screen's refresh rate). *Presented: frames that reached the screen; only Gingham can report it",
+                  "(`GHTableView.framePresented`), no other engine has a way to tell. Data age: from the time a change was due",
+                  "(Binance: its arrival) to the start of the callback that applied it (that frame's apply, layout, commit and",
+                  "presentation not included).",
                   "Main thread busy: share of time its run loop wasn't waiting. Longest stall: the longest time between two callbacks.",
                   "Callbacks/s: display-link callbacks the main thread got to. CPU: all threads, 100% = one core. GPU: the process's GPU",
-                  "time and the window server's (it composites all apps), ms a second. Energy: as the kernel accounts it to the process",
+                  "time and the window server's above its rate with the table shown and nothing changing (it composites all apps;",
+                  "AppKit's drawing is composited there, Gingham's drawn in the process), and their sum, ms a second. Energy: as the kernel accounts it to the process",
                   "(mostly the CPU's). The window server's CPU time isn't measured. Order: the order shown,",
                   "checked against the store after the run. See the README for how each engine is set up.", ""]
         return lines.joined(separator: "\n")

@@ -26,8 +26,8 @@ jobs:
   build:
     name: Xcode ${{ matrix.xcode }}
     runs-on: macos-26
-    # Xcode 26.0–26.3 can't import Gingham 1.1.0's binary interface (fixed in 1.1.1): their jobs
-    # may fail without failing the workflow.
+    # (Gingham 1.1.0's binary interface didn't import in Xcode 26.0–26.3; 1.1.1 fixes it, so every
+    # job must pass. `may-fail` stays for a version that can't, with a comment why.)
     continue-on-error: ${{ matrix.may-fail }}
     timeout-minutes: 30
     strategy:
@@ -35,9 +35,9 @@ jobs:
       matrix:
         include:
           - xcode: "26.0.1"
-            may-fail: true
+            may-fail: false
           - xcode: "26.3"
-            may-fail: true
+            may-fail: false
           - xcode: "26.4.1"
             may-fail: false
           - xcode: latest-stable

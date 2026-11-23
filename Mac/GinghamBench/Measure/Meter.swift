@@ -7,10 +7,13 @@
 //  thread) everything pending is applied and the engine told; so an engine that keeps up can
 //  show new data at every refresh, and one that doesn't shows it less often and older:
 //
-//  - Updates shown a second: display-link callbacks that applied changes, the times a second the
-//    table got new data to show (at most the screen's refresh rate).
-//  - Data age: from a change's generation (or its arrival from the network) to the callback that
-//    applied it, median and 99th percentile over the changes.
+//  - Updates applied a second: display-link callbacks that applied changes, the times a second
+//    the table was given new data (at most the screen's refresh rate). Whether each update then
+//    reached the screen only Gingham can tell (`GHTableView.framePresented`): its presented
+//    frames a second are recorded too.
+//  - Data age: from the time a change was due in the feed (or its arrival from the network) to
+//    the start of the callback that applied it, median and 99th percentile over the changes. It
+//    ends there: that frame's apply, layout, commit and presentation aren't in it.
 //  - Main thread busy: the share of time its run loop wasn't waiting (run loop observers of
 //    `afterWaiting`, first of all, and `beforeWaiting`, last of all): applying changes, layout,
 //    drawing, Core Animation's commit, everything the app and the framework do on it.
@@ -21,7 +24,10 @@
 //  - Changes applied a second: row changes applied to the store and told to the engine.
 //  - Process CPU (all threads, 100% = one core), the process's GPU time (the GPU driver's
 //    `accumulatedGPUTime` of the process's GPU clients, what Activity Monitor's GPU column
-//    shows) and the window server's GPU time (it composites every app's layers, ours included),
+//    shows) and the window server's GPU time (it composites every app's layers, ours included:
+//    AppKit's drawing is composited there, Gingham's is drawn in the process), less the window
+//    server's rate in two seconds before the feed starts (the table shown, nothing changing),
+//    and the sum of the two,
 //    the energy the kernel accounts to the process (`task_energy` of `TASK_POWER_INFO_V2`),
 //    memory (physical footprint) and the thermal state, sampled every 250 ms on another thread:
 //    work an engine moves off the main thread, or to the GPU, shows here. The window server's
@@ -128,8 +134,23 @@ nonisolated final class MeterData: @unchecked Sendable {
         }
     }
 
-    /// Numbers over a window.
-    func summary(from start: CFTimeInterval, to end: CFTimeInterval) -> RunNumbers {
+    /// GPU ms a second of the process and the window server between two times, summing only the
+    /// increases between samples (a GPU client that closes takes its time with it).
+    private static func gpuRates(_ samples: [ProcessSample], from start: CFTimeInterval, to end: CFTimeInterval) -> (own: Double, server: Double) {
+        let inRange = samples.filter { $0.time >= start && $0.time <= end }
+        guard let first = inRange.first, let last = inRange.last, last.time > first.time else { return (0, 0) }
+        var own = 0.0, server = 0.0
+        for (previous, next) in zip(inRange, inRange.dropFirst()) {
+            own += max(0, next.gpu - previous.gpu)
+            server += max(0, next.serverGPU - previous.serverGPU)
+        }
+        let elapsed = last.time - first.time
+        return (own / elapsed / 1_000_000, server / elapsed / 1_000_000)
+    }
+
+    /// Numbers over a window; `baseline`: when the table was shown and nothing changed (the
+    /// window server's GPU rate then is subtracted from its rate in the window).
+    func summary(from start: CFTimeInterval, to end: CFTimeInterval, baseline: ClosedRange<CFTimeInterval>? = nil) -> RunNumbers {
         lock.withLock {
             let duration = max(end - start, 1e-9)
             let inWindow = frames.filter { $0 >= start && $0 < end }
@@ -164,16 +185,22 @@ nonisolated final class MeterData: @unchecked Sendable {
             if let before, let after, after.time > before.time {
                 let elapsed = after.time - before.time
                 cpu = (after.cpu - before.cpu) / elapsed * 100
-                gpu = (after.gpu - before.gpu) / elapsed / 1_000_000
-                serverGPU = (after.serverGPU - before.serverGPU) / elapsed / 1_000_000
                 energy = (after.energy - before.energy) / elapsed / 1_000_000
+                let rates = Self.gpuRates(samples, from: before.time, to: after.time)
+                gpu = rates.own
+                serverGPU = rates.server
             }
+            var serverBaseline: Double?
+            if let baseline {
+                serverBaseline = Self.gpuRates(samples, from: baseline.lowerBound, to: baseline.upperBound).server
+            }
+            let netServerGPU = serverGPU.map { max(0, $0 - (serverBaseline ?? 0)) }
             let windowSamples = samples.filter { $0.time >= start && $0.time <= end }
             let footprint = windowSamples.map(\.footprint).max() ?? samples.last?.footprint
             let thermal = windowSamples.map(\.thermal).max() ?? samples.last?.thermal
             return RunNumbers(
                 seconds: duration,
-                updatesShownPerSecond: Double(applied.filter { $0.count > 0 }.count) / duration,
+                updatesAppliedPerSecond: Double(applied.filter { $0.count > 0 }.count) / duration,
                 worstSecondUpdates: perSecond.map(\.updates).min(),
                 dataAgeP50Ms: Self.percentile(agesInWindow, 0.5).map { $0 * 1000 },
                 dataAgeP99Ms: Self.percentile(agesInWindow, 0.99).map { $0 * 1000 },
@@ -184,7 +211,9 @@ nonisolated final class MeterData: @unchecked Sendable {
                 presentedPerSecond: presented.isEmpty ? nil : Double(presented.filter { $0 >= start && $0 < end }.count) / duration,
                 cpuPercent: cpu,
                 gpuMsPerSecond: gpu,
-                windowServerGPUMsPerSecond: serverGPU,
+                windowServerGPUMsPerSecond: netServerGPU,
+                windowServerGPUBaselineMsPerSecond: serverBaseline,
+                totalGPUMsPerSecond: gpu.map { $0 + (netServerGPU ?? 0) },
                 energyMilliwatts: energy,
                 memoryMB: footprint,
                 thermalState: thermal.map(Machine.thermalName),
@@ -203,9 +232,9 @@ nonisolated struct SecondNumbers: Codable, Sendable {
 nonisolated struct RunNumbers: Codable, Sendable {
     var seconds: Double
     /// Display-link callbacks that applied changes, a second.
-    var updatesShownPerSecond: Double
+    var updatesAppliedPerSecond: Double
     var worstSecondUpdates: Int?
-    /// From generation (or arrival) to the callback that applied it, ms.
+    /// From the time a change was due (or arrived) to the start of the callback that applied it, ms.
     var dataAgeP50Ms: Double?
     var dataAgeP99Ms: Double?
     var busyShare: Double
@@ -219,9 +248,12 @@ nonisolated struct RunNumbers: Codable, Sendable {
     var cpuPercent: Double?
     /// GPU time of the process, ms a second.
     var gpuMsPerSecond: Double?
-    /// GPU time of the window server, ms a second (all apps' compositing; the bench's window is
-    /// most of it on a quiet Mac).
+    /// GPU time of the window server, ms a second, less its rate before the feed started (all
+    /// apps' compositing; the bench's window is most of it on a quiet Mac).
     var windowServerGPUMsPerSecond: Double?
+    var windowServerGPUBaselineMsPerSecond: Double?
+    /// The process's GPU time and the window server's (less its baseline), ms a second.
+    var totalGPUMsPerSecond: Double?
     /// Energy the kernel accounts to the process (mostly the CPU's), mW.
     var energyMilliwatts: Double?
     var memoryMB: Double?

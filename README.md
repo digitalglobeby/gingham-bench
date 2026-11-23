@@ -14,7 +14,7 @@ think an engine is used wrong, the code that uses it is a few hundred lines in
 faster way and it will be measured.
 
 Gingham comes in as customers get it: the binary package
-`https://github.com/digitalglobeby/Gingham` (`from: "1.1.0"`). It's free for tables of up to
+`https://github.com/digitalglobeby/Gingham` (`from: "1.1.1"`). It's free for tables of up to
 10,000 rows; the bench registers a license key that unlocks every row only for its own bundle
 id (`Shared/BenchKey.swift`), so the scenarios with hundreds of thousands of rows run as
 measured.
@@ -45,8 +45,7 @@ and, in window mode, `--show order-book/collection` and `--cycle 7` (switches en
 7 seconds, for recording). All of them are described in
 [`Options.swift`](Mac/GinghamBench/App/Options.swift).
 
-**From source**: Xcode 26.4 or later (Xcode 26.0–26.3 can't import Gingham 1.1.0's binary
-interface; Gingham 1.1.1 fixes that), then either open `Mac/GinghamBench.xcodeproj` and run the
+**From source**: Xcode 26 or later, then either open `Mac/GinghamBench.xcodeproj` and run the
 `GinghamBench` scheme (it runs the Release configuration), or let the script build Release and
 run everything:
 
@@ -259,7 +258,9 @@ What an expert would do to give SwiftUI less to compare and redraw:
   changes the table gets the reordered rows with a new `.id`, so SwiftUI builds the table afresh
   instead of working out every row's move. Measured on `live-trades`: diffing the moves left the
   main thread stuck for 2.4 s at a time (0 updates a second); building afresh takes about 0.3 s
-  (3–4 updates a second). `--swiftui-diff-moves` compares the two.
+  (3–4 updates a second). `--swiftui-diff-moves` compares the two. A new `.id` also resets the
+  table's scrolling and selection, which a real app would have to keep itself (the bench neither
+  scrolls nor selects).
 [`SwiftUITunedEngine.swift`](Mac/GinghamBench/Engines/SwiftUITunedEngine.swift)
 
 ### Both SwiftUI engines
@@ -285,10 +286,15 @@ Frames are counted by a `CADisplayLink` of the window's screen, asked for the sc
 its callbacks run on the main thread, once per screen refresh when the main thread is free to take
 it. Each callback applies the changes that came since the last one (above). Per engine:
 
-- **Updates shown a second**: callbacks that applied new data, the times a second the table got
-  something new to show (at most the screen's refresh rate). The headline number.
-- **Data age**: from a change's generation (Binance: its arrival from the network) to the callback
-  that applied it, median and 99th percentile over the changes.
+- **Updates applied a second**: callbacks that applied new data, the times a second the table was
+  given something new to show (at most the screen's refresh rate). The headline number. Whether
+  each update then reached the screen, only Gingham can tell (`GHTableView.framePresented`); its
+  **frames presented** a second are shown next to it. No other engine has a way to report that.
+- **Data age**: from the time a change was due in the feed (Binance: its arrival from the network)
+  to the start of the callback that applied it, median and 99th percentile over the changes. It
+  ends there: that frame's applying, layout, commit and presentation aren't in it. Ticks keep the
+  time they were due even when the generator waits for a slow engine (below), so an engine that
+  falls behind shows it here.
 - **Main thread busy**: the share of time the main run loop wasn't waiting (run loop observers of
   `afterWaiting`, running first, and `beforeWaiting`, running last): applying the changes, layout,
   drawing, Core Animation's commit, everything the app and the framework do on it. Less is more
@@ -301,12 +307,17 @@ it. Each callback applies the changes that came since the last one (above). Per 
   that can't keep up gets fewer changes; the table flags runs below 95% of the feed's rate.
 - **Process CPU** (all threads, 100% is one core), the process's **GPU time** (the GPU driver's
   accumulated time of the process's GPU clients, what Activity Monitor's GPU column shows), the
-  **window server's GPU time** (it composites every app's layers; on a quiet Mac the bench's window
-  is most of it), **energy** as the kernel accounts it to the process (`TASK_POWER_INFO_V2`, mostly
+  **window server's GPU time** above its rate in two seconds before the feed starts (the table
+  shown, nothing changing; it composites every app's layers, so this is Mac-wide), and **the two
+  together**: the work lands in different places, AppKit's drawing composited under the window
+  server, Gingham's drawn in the process. Only increases between samples count (a GPU client that
+  closes takes its time with it). Also **energy** as the kernel accounts it to the process (`TASK_POWER_INFO_V2`, mostly
   the CPU's), **memory** (physical footprint) and the **thermal state**, sampled every 250 ms on
   another thread: work an engine moves off the main thread, or to the GPU, shows here.
 - **Order check**: after each live run the feed stops, the last changes are applied, and the order
-  the engine shows is checked against the store: every row once, in the scenario's order.
+  the engine shows is checked against the store: every row once, in the scenario's order. For the
+  view-based AppKit tables, whose cells can be read, the text of every cell in view is checked
+  against the store too (a stale in-place update fails).
 - **Interruptions**: a run during which the window was covered (Gingham stops drawing what isn't
   seen, which would favor it), the screen locked, the screen saver started or the display slept is
   reported as invalid.

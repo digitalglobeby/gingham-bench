@@ -595,7 +595,8 @@ nonisolated extension Comparable {
 
 /// The generator on a thread of its own, ticking at its model's rate; the main thread takes
 /// what came once per screen frame. If more than a second of changes waits (an engine that
-/// can't keep up), the generator waits too: the changes applied a second then show it.
+/// can't keep up), the generator waits too: the changes applied a second then show it, and the
+/// data age (ticks keep the time they were due) shows how far behind the engine fell.
 nonisolated final class FeedPump: @unchecked Sendable {
     let generator: FeedGenerator
     private let lock = NSLock()
@@ -650,20 +651,20 @@ nonisolated final class FeedPump: @unchecked Sendable {
                 Thread.sleep(forTimeInterval: min(next - now, 0.005))
                 continue
             }
+            // A second of changes waiting: the generator waits too, but its clock doesn't: each
+            // tick is stamped with the time it was due, so data an engine couldn't take in time
+            // shows as older (the data age), and the ticks it missed come as fast as it takes them.
             if backlog > backlogLimit {
                 Thread.sleep(forTimeInterval: 0.001)
-                next = CACurrentMediaTime()
                 continue
             }
             generator.tick(into: &local)
-            local.ticks.append((CACurrentMediaTime(), local.count))
+            local.ticks.append((next, local.count))
             lock.lock()
             pending.append(contentsOf: local)
             lock.unlock()
             local.removeAll()
             next += interval
-            // Behind by more than a tenth of a second (a busy machine): no burst to catch up.
-            if CACurrentMediaTime() - next > 0.1 { next = CACurrentMediaTime() }
         }
     }
 }
