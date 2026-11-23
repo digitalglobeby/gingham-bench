@@ -120,6 +120,7 @@ final class ChildRun {
     private let kind: EngineKind
     private let ui: BenchWindow
     private let meter = Meter()
+    private var screenMeter: ScreenMeter?
     private var scenario: Scenario?
     private var engine: Engine?
     private var watchdog: Watchdog?
@@ -136,6 +137,7 @@ final class ChildRun {
     private var activity: NSObjectProtocol?
     private var lastBarUpdate: CFTimeInterval = 0
     private var lastLockCheck: CFTimeInterval = 0
+    private var lagFrames = 0, checkedFrames = 0, differingPlaces = 0
     private var observers: [NSObjectProtocol] = []
 
     init(options: Options, ui: BenchWindow) {
@@ -172,8 +174,8 @@ final class ChildRun {
     }
 
     private func makeTemplate(_ scenario: Scenario) -> RunResult {
-        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, status: "ok",
-                  note: nil, rows: scenario.source.rowCount, warmup: options.warmup(for: scenarioID), loadSeconds: nil,
+        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, pass: options.pass,
+                  status: "ok", note: nil, rows: scenario.source.rowCount, warmup: options.warmup(for: scenarioID), loadSeconds: nil,
                   nominalChangesPerSecond: scenario.nominalChangesPerSecond, numbers: nil,
                   sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
                   date: ISO8601DateFormatter().string(from: Date()))
@@ -196,6 +198,12 @@ final class ChildRun {
         meter.onFrame = { [weak self] now in self?.frame(now) }
         meter.start(on: ui.container)
         watchInterruptions()
+        if options.screenMeter {
+            let screenMeter = ScreenMeter(data: meter.data)
+            self.screenMeter = screenMeter
+            let (window, body, rate) = (ui.window, ui.tableBody, meter.refreshRate)
+            Task { await screenMeter.start(window: window, tableBody: body, refreshRate: rate) }
+        }
         if scenarioID.isSort, let sortScenario = scenario as? SortScenario {
             Task { await runSorts(sortScenario, engine: engine) }
         }
@@ -244,7 +252,8 @@ final class ChildRun {
         if now - lastBarUpdate >= 0.25 {
             lastBarUpdate = now
             let second = meter.data.lastSecond(now: now)
-            ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age, refreshRate: meter.refreshRate)
+            ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age,
+                          screen: screenMeter?.state == "running" ? second.screen : nil, refreshRate: meter.refreshRate)
         }
         checkVisible(now)
         guard !scenarioID.isSort else { return }
@@ -267,6 +276,15 @@ final class ChildRun {
             }
             return
         }
+        // (Visible-truth check: does the engine show the top rows the store has, one frame after
+        // the last batch? Counted before the next batch is applied.)
+        if SyntheticScenario.checksVisibleTruth, let synthetic = scenario as? SyntheticScenario, !synthetic.topRows.isEmpty, !engine.isSorting {
+            var differing = 0
+            for (index, row) in synthetic.topRows.enumerated() where engine.sourceRow(atDisplayIndex: index) != row { differing += 1 }
+            if differing > 0 { lagFrames += 1 }
+            differingPlaces += differing
+            checkedFrames += 1
+        }
         // Everything that came since the last callback, applied at once.
         meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
         if let window, now >= window.end, !verifying { finishMeasured(window) }
@@ -276,7 +294,10 @@ final class ChildRun {
         guard var result = template, !finished, let scenario, let engine else { return }
         verifying = true
         result.loadSeconds = loadedAt.map { $0 - loadStart }
-        result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline)
+        if checkedFrames > 0 { FileHandle.standardError.write(Data("visible truth: the engine's top rows differed from the store's at \(lagFrames) of \(checkedFrames) callbacks, \(String(format: "%.1f", Double(differingPlaces) / Double(checkedFrames))) of the 30 places on average\n".utf8)) }
+        let screenRunning = screenMeter?.state == "running"
+        result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline, screen: screenRunning)
+        result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
         let interruptions = meter.data.interruptions(in: (loadedAt ?? window.start)...window.end)
         if let first = interruptions.first {
             result.status = "invalid"
@@ -341,7 +362,7 @@ final class ChildRun {
     }
 
     private func makeBasicResult(status: String, note: String?) -> RunResult {
-        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run,
+        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, pass: options.pass,
                   status: status, note: note, rows: 0, warmup: 0, loadSeconds: nil, nominalChangesPerSecond: nil,
                   numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
                   date: ISO8601DateFormatter().string(from: Date()))
@@ -358,6 +379,7 @@ final class ChildRun {
         guard !finished else { return }
         finished = true
         watchdog?.done()
+        screenMeter?.stop()
         scenario?.stop()
         meter.stop()
         if let output = options.output { result.append(to: output) }
@@ -424,7 +446,16 @@ final class ChildRun {
             await sleep(300)
         }
         watchdog?.step(deadline: CACurrentMediaTime() + 120, note: "checking the order took over 2 minutes", partial: partial)
+        // A check of the screen meter: two seconds with nothing changing (callbacks go on).
+        let quietStart = CACurrentMediaTime()
+        await sleep(2000)
         guard var result = template else { return }
+        if screenMeter?.state == "running" {
+            let quiet = meter.data.summary(from: quietStart, to: CACurrentMediaTime(), screen: true)
+            result.quietScreenUpdatesPerSecond = quiet.screenUpdatesPerSecond
+            result.quietCallbacksPerSecond = quiet.callbacksPerSecond
+        }
+        result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
         result.loadSeconds = loadedAt.map { $0 - loadStart }
         result.sorts = sorts
         result.orderCheck = isInFinderOrder(engine, scenario: scenario) ? "ok" : "not in Finder's order"
@@ -456,20 +487,34 @@ enum Orchestrator {
         let output = options.output ?? "results/\(Self.stamp()).jsonl"
         let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
         var failures = 0
-        let total = options.scenarios.count * options.engines.count * options.runs
-        var done = 0
-        print("Gingham Bench: \(total) runs → \(output)")
+        // The runs: engines take turns within each round, so a slow drift of the machine (heat,
+        // background work) spreads over all of them. With `--separate-screen-pass` the measured
+        // runs go without the screen meter and one more round of every scenario and engine runs
+        // with it (its numbers give the screen updates column).
+        var jobs: [(scenario: ScenarioID, run: Int, engine: EngineKind, screen: Bool, pass: String?)] = []
         for scenario in options.scenarios {
             for run in 1...options.runs {
-                // Engines take turns within each round, so a slow drift of the machine (heat,
-                // background work) spreads over all of them.
                 for engine in options.engines {
+                    jobs.append((scenario, run, engine, options.screenMeter && !options.separateScreenPass, nil))
+                }
+            }
+        }
+        if options.separateScreenPass, options.screenMeter {
+            for scenario in options.scenarios {
+                for engine in options.engines { jobs.append((scenario, 1, engine, true, "screen")) }
+            }
+        }
+        let total = jobs.count
+        var done = 0
+        print("Gingham Bench: \(total) runs → \(output)")
+        for (scenario, run, engine, screen, pass) in jobs {
+                    do {
                     done += 1
-                    print("[\(done)/\(total)] \(scenario.rawValue) · \(engine.title) · run \(run)", terminator: "")
+                    print("[\(done)/\(total)] \(scenario.rawValue) · \(engine.title) · \(pass.map { "\($0) pass" } ?? "run \(run)")", terminator: "")
                     fflush(stdout)
                     let process = Process()
                     process.executableURL = executable
-                    process.arguments = options.childArguments(scenario: scenario, engine: engine, run: run, output: output)
+                    process.arguments = options.childArguments(scenario: scenario, engine: engine, run: run, output: output, screenMeter: screen, pass: pass)
                     // The child's output in a file (a pipe could fill up and block it).
                     let log = FileManager.default.temporaryDirectory.appendingPathComponent("gingham-bench-child-\(UUID().uuidString).txt")
                     FileManager.default.createFile(atPath: log.path, contents: nil)
@@ -499,7 +544,7 @@ enum Orchestrator {
                         // Ended without a result (a crash macOS caught first, a kill): reported as a failed run.
                         let how = process.terminationReason == .uncaughtSignal ? "signal \(process.terminationStatus)" : "exit status \(process.terminationStatus)"
                         let result = RunResult(scenario: scenario.rawValue, engine: engine.rawValue, engineTitle: engine.title, run: run,
-                                               status: "crashed", note: "the app ended without a result (\(how)); see ~/Library/Logs/DiagnosticReports",
+                                               pass: pass, status: "crashed", note: "the app ended without a result (\(how)); see ~/Library/Logs/DiagnosticReports",
                                                rows: 0, warmup: options.warmup(for: scenario), loadSeconds: nil, nominalChangesPerSecond: nil,
                                                numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: NSScreen.main),
                                                date: ISO8601DateFormatter().string(from: Date()))
@@ -508,8 +553,7 @@ enum Orchestrator {
                     }
                     if process.terminationStatus != 0 { failures += 1 }
                     Thread.sleep(forTimeInterval: 1)
-                }
-            }
+                    }
         }
         let markdownPath = (output as NSString).deletingPathExtension + ".md"
         let markdown = Report.markdown(Report.read(output))
@@ -540,7 +584,8 @@ enum Orchestrator {
                 .joined(separator: ", ") + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")
         }
         guard let numbers = result.numbers else { return result.status }
-        return String(format: "%.0f updates applied/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f more than idle)",
+        let screen = numbers.screenUpdatesPerSecond.map { String(format: "%.0f screen updates/s, ", $0) } ?? "no screen meter (\(result.screenMeter ?? "?")), "
+        return screen + String(format: "%.0f updates applied/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f more than idle)",
                       numbers.updatesAppliedPerSecond, numbers.dataAgeP50Ms ?? .nan, numbers.dataAgeP99Ms ?? .nan, numbers.busyShare * 100,
                       numbers.longestStallMs, numbers.callbacksPerSecond, numbers.changesPerSecond, numbers.cpuPercent ?? 0, numbers.gpuMsPerSecond ?? 0,
                       numbers.windowServerGPUMsPerSecond ?? 0)

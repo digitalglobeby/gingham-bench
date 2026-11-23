@@ -25,6 +25,8 @@
 //    --check-formats           prints where the other engines' number text differs from Gingham's
 //    --self-test               replays order book changes into every engine (no network) and checks their order
 //    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
+//    --no-screen-meter         no ScreenCaptureKit capture of the window (no screen updates/s)
+//    --separate-screen-pass    measured runs without the screen meter, then one round of all with it
 //    --calibrate-feed MODEL    prints the row changes a second a generated feed makes (trades, orders, instruments)
 //    --cycle N                 window mode: switch engines every N seconds (for recording); --quit after a round
 //
@@ -51,6 +53,9 @@ struct Options {
     var checkFormats = false
     var selfTest = false
     var crashReports = false
+    var screenMeter = true
+    var separateScreenPass = false
+    var pass: String?
     var cycle: Double?
     var quitAfterCycle = false
     var isChild = false
@@ -115,6 +120,9 @@ struct Options {
             case "--check-formats": options.checkFormats = true
             case "--self-test": options.selfTest = true
             case "--crash-reports": options.crashReports = true
+            case "--no-screen-meter": options.screenMeter = false
+            case "--separate-screen-pass": options.separateScreenPass = true
+            case "--pass": options.pass = try value(argument)
             case "--cycle": options.cycle = try number(argument)
             case "--quit": options.quitAfterCycle = true
             case "--child": options.isChild = true
@@ -133,7 +141,7 @@ struct Options {
     }
 
     /// The arguments of a child process measuring one scenario, engine and run.
-    func childArguments(scenario: ScenarioID, engine: EngineKind, run: Int, output: String) -> [String] {
+    func childArguments(scenario: ScenarioID, engine: EngineKind, run: Int, output: String, screenMeter: Bool, pass: String?) -> [String] {
         var arguments = ["--child", "--scenario", scenario.rawValue, "--engine", engine.rawValue, "--run", String(run),
                          "--seconds", String(seconds), "--output", output, "--load-timeout", String(loadTimeout),
                          "--window", "\(Int(windowSize.width))x\(Int(windowSize.height))",
@@ -143,6 +151,8 @@ struct Options {
         if ginghamExtras { arguments.append("--gingham-extras") }
         if swiftUIDiffsMoves { arguments.append("--swiftui-diff-moves") }
         if crashReports { arguments.append("--crash-reports") }
+        if !screenMeter { arguments.append("--no-screen-meter") }
+        if let pass { arguments += ["--pass", pass] }
         return arguments
     }
 }

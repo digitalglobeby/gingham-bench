@@ -64,10 +64,14 @@ final class Bar: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func update(updates count: Int, busy share: Double, callbacks: Int, age: Double?, refreshRate: Int) {
-        frames.stringValue = "\(count) updates applied/s"
+    /// `screen`: the table's screen updates a second (nil without the screen meter: the big number
+    /// is then the updates applied).
+    func update(updates applied: Int, busy share: Double, callbacks: Int, age: Double?, screen: Int?, refreshRate: Int) {
+        let count = screen ?? applied
+        frames.stringValue = screen != nil ? "\(count) screen updates/s" : "\(count) updates applied/s"
         busy.stringValue = "main thread \(Int((share * 100).rounded()))% busy"
-        small.stringValue = (age.map { "data age \(Int(($0 * 1000).rounded())) ms · " } ?? "") + "\(callbacks) callbacks/s"
+        small.stringValue = (screen != nil ? "\(applied) updates applied/s · " : "")
+            + (age.map { "data age \(Int(($0 * 1000).rounded())) ms · " } ?? "") + "\(callbacks) callbacks/s"
         let rate = max(refreshRate, 60)
         frames.textColor = count >= rate * 5 / 6 ? .systemGreen : count >= rate / 3 ? .systemOrange : .systemRed
         busy.textColor = share < 0.75 ? .systemGreen : share < 0.9 ? .systemOrange : .systemRed
@@ -121,6 +125,17 @@ final class BenchWindow {
         window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
+    }
+
+    /// The table's body in the window (points, origin at the top left of the window's frame): the
+    /// container less the column header (30 points) and the scrollers' strips (16 points at the
+    /// right and bottom: overlay scrollers flash when the number of rows changes), what the screen
+    /// meter watches.
+    var tableBody: CGRect {
+        let inWindow = container.convert(container.bounds, to: nil)
+        let header: CGFloat = 30, scroller: CGFloat = 16
+        return CGRect(x: inWindow.minX, y: window.frame.height - inWindow.maxY + header, width: max(0, inWindow.width - scroller),
+                      height: max(0, inWindow.height - header - scroller))
     }
 
     /// An engine's view in the container (the one before goes).

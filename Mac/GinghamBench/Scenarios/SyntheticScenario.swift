@@ -214,6 +214,39 @@ final class SyntheticScenario: Scenario {
         var applied = Applied(changes: store.apply(batch, engine: engine))
         engine?.endUpdates()
         for tick in batch.ticks { applied.ages.append((time - tick.time, tick.changes)) }
+        if Self.checksVisibleTruth, model == .trades { applied.visibleChanged = topRowsChanged() }
         return applied
+    }
+
+    /// `GINGHAM_BENCH_VISIBLE_TRUTH` (a check of the screen meter on `live-trades`): whether the
+    /// rows a table sorted by amount shows at the top (the first 30) look different after this
+    /// batch, whatever the engine: the data's own answer to "should the screen change now?".
+    static let checksVisibleTruth = ProcessInfo.processInfo.environment["GINGHAM_BENCH_VISIBLE_TRUTH"] != nil
+    /// How many top rows (`GINGHAM_BENCH_VISIBLE_TRUTH=<rows>`; 1 or any other value: 30).
+    static let truthRows = Int(ProcessInfo.processInfo.environment["GINGHAM_BENCH_VISIBLE_TRUTH"] ?? "").flatMap { $0 > 1 ? $0 : nil } ?? 30
+    private var topSignature: [String] = []
+    /// The top rows after the last batch (visible-truth check).
+    private(set) var topRows: [Int] = []
+
+    private func topRowsChanged() -> Bool {
+        let amounts = store.numberArray(5) ?? []
+        var top: [Int] = []
+        for row in amounts.indices {
+            if top.count < Self.truthRows || amounts[row] > amounts[top[top.count - 1]] {
+                var index = top.count
+                while index > 0, amounts[top[index - 1]] < amounts[row] { index -= 1 }
+                top.insert(row, at: index)
+                if top.count > Self.truthRows { top.removeLast() }
+            }
+        }
+        var signature: [String] = []
+        for row in top {
+            signature.append((0..<store.columns.count).map { BenchFormat.text(store, row: row, column: $0) }.joined(separator: "|"))
+        }
+        defer {
+            topSignature = signature
+            topRows = top
+        }
+        return signature != topSignature
     }
 }

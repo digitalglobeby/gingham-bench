@@ -36,6 +36,7 @@
 		BFA7817CD20D7BB2ADC7D22B /* Meter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B3E5852E80F3F093036088 /* Meter.swift */; };
 		BFF510ECCF6BDA667D8B6D89 /* FeedGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E141FD4035276654B386B9 /* FeedGenerator.swift */; };
 		CFB0AD089EA4210FE01BB9CA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63450A434BD2037A5F78353B /* main.swift */; };
+		DBFB20A7FD257F070D95CD39 /* ScreenMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */; };
 		DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA70C66D0905A84B2844489E /* Runner.swift */; };
 		E2D1AD5A83613A47CEAE20A5 /* NSTableCellsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */; };
 /* End PBXBuildFile section */
@@ -71,6 +72,7 @@
 		E4E141FD4035276654B386B9 /* FeedGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedGenerator.swift; sourceTree = "<group>"; };
 		E82D253D06EE35D0B84A56A2 /* Columns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Columns.swift; sourceTree = "<group>"; };
 		EC00F04B7E7D1D45DA1B08D0 /* CollectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionEngine.swift; sourceTree = "<group>"; };
+		F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenMeter.swift; sourceTree = "<group>"; };
 		FB0E747B4E6890ECFB1F0CC4 /* GinghamBench.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GinghamBench.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -136,6 +138,7 @@
 				00B3E5852E80F3F093036088 /* Meter.swift */,
 				598A062B7F93CBD847E38015 /* Report.swift */,
 				AA70C66D0905A84B2844489E /* Runner.swift */,
+				F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */,
 				2C66C516821460A4A47BAE6E /* SelfTest.swift */,
 			);
 			path = Measure;
@@ -282,6 +285,7 @@
 				80A5291E965FB5754E58DB4B /* Report.swift in Sources */,
 				DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */,
 				4A6C26AA4EAA8F10587D4B1E /* Scenario.swift in Sources */,
+				DBFB20A7FD257F070D95CD39 /* ScreenMeter.swift in Sources */,
 				B136A1C5B62DB5234195A686 /* SelfTest.swift in Sources */,
 				8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */,
 				50C7F18539AF31AA97AE9C61 /* SwiftUIEngine.swift in Sources */,

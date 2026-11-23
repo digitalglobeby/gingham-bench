@@ -65,11 +65,17 @@ nonisolated final class MeterData: @unchecked Sendable {
     private var ages: [(time: CFTimeInterval, age: Double, changes: Int)] = []
     private var samples: [ProcessSample] = []
     private var interruptions: [(time: CFTimeInterval, what: String)] = []
+    /// Window frames ScreenCaptureKit delivered (the window changed), with the share of the
+    /// table's body that changed (0: only the top bar or the header).
+    private var screenFrames: [(time: CFTimeInterval, tableShare: Double)] = []
 
     func frame(_ time: CFTimeInterval) { lock.withLock { frames.append(time) } }
     func presented(_ time: CFTimeInterval) { lock.withLock { presented.append(time) } }
+    private var visibleTruth: [CFTimeInterval] = []
+
     func applied(_ applied: Applied, at time: CFTimeInterval) {
         lock.withLock {
+            if applied.visibleChanged == true { visibleTruth.append(time) }
             changes.append((time, applied.changes))
             for (age, count) in applied.ages where count > 0 { ages.append((time, age, count)) }
         }
@@ -82,6 +88,7 @@ nonisolated final class MeterData: @unchecked Sendable {
         }
     }
     func sample(_ sample: ProcessSample) { lock.withLock { samples.append(sample) } }
+    func screenFrame(at time: CFTimeInterval, tableShare: Double) { lock.withLock { screenFrames.append((time, tableShare)) } }
     /// The window was covered, the screen locked or the like: the run doesn't count.
     func interrupted(_ what: String, at time: CFTimeInterval) { lock.withLock { interruptions.append((time, what)) } }
 
@@ -92,9 +99,10 @@ nonisolated final class MeterData: @unchecked Sendable {
     }
 
     /// The last second's numbers (for the window).
-    func lastSecond(now: CFTimeInterval) -> (updates: Int, busy: Double, callbacks: Int, age: Double?) {
+    func lastSecond(now: CFTimeInterval) -> (updates: Int, busy: Double, callbacks: Int, age: Double?, screen: Int) {
         lock.withLock {
             let from = now - 1
+            let screen = screenFrames.reversed().prefix { $0.time >= from }.filter { $0.tableShare > 0 }.count
             let callbacks = frames.reversed().prefix { $0 >= from }.count
             let updates = changes.reversed().prefix { $0.time >= from }.filter { $0.count > 0 }.count
             var waited = 0.0
@@ -104,7 +112,7 @@ nonisolated final class MeterData: @unchecked Sendable {
             }
             if let start = waitStart { waited += now - max(start, from) }
             let recent = Array(ages.reversed().prefix { $0.time >= from })
-            return (updates, min(1, max(0, 1 - waited)), callbacks, Self.percentile(recent, 0.5))
+            return (updates, min(1, max(0, 1 - waited)), callbacks, Self.percentile(recent, 0.5), screen)
         }
     }
 
@@ -131,6 +139,7 @@ nonisolated final class MeterData: @unchecked Sendable {
             changes.removeAll { $0.time < time }
             ages.removeAll { $0.time < time }
             samples.removeAll { $0.time < time }
+            screenFrames.removeAll { $0.time < time }
         }
     }
 
@@ -150,7 +159,7 @@ nonisolated final class MeterData: @unchecked Sendable {
 
     /// Numbers over a window; `baseline`: when the table was shown and nothing changed (the
     /// window server's GPU rate then is subtracted from its rate in the window).
-    func summary(from start: CFTimeInterval, to end: CFTimeInterval, baseline: ClosedRange<CFTimeInterval>? = nil) -> RunNumbers {
+    func summary(from start: CFTimeInterval, to end: CFTimeInterval, baseline: ClosedRange<CFTimeInterval>? = nil, screen: Bool = false) -> RunNumbers {
         lock.withLock {
             let duration = max(end - start, 1e-9)
             let inWindow = frames.filter { $0 >= start && $0 < end }
@@ -176,7 +185,8 @@ nonisolated final class MeterData: @unchecked Sendable {
                     callbacks: inWindow.lazy.filter { $0 >= from && $0 < to }.count,
                     updates: ofSecond.lazy.filter { $0.count > 0 }.count,
                     busy: 1 - waited(from, to),
-                    changes: ofSecond.reduce(0) { $0 + $1.count }))
+                    changes: ofSecond.reduce(0) { $0 + $1.count },
+                    screenUpdates: screen ? screenFrames.lazy.filter { $0.time >= from && $0.time < to && $0.tableShare > 0 }.count : nil))
             }
             let agesInWindow = ages.filter { $0.time >= start && $0.time < end }
             let before = samples.last { $0.time <= start } ?? samples.first
@@ -198,7 +208,15 @@ nonisolated final class MeterData: @unchecked Sendable {
             let windowSamples = samples.filter { $0.time >= start && $0.time <= end }
             let footprint = windowSamples.map(\.footprint).max() ?? samples.last?.footprint
             let thermal = windowSamples.map(\.thermal).max() ?? samples.last?.thermal
+            let screenInWindow = screenFrames.filter { $0.time >= start && $0.time < end }
+            let tableFrames = screenInWindow.filter { $0.tableShare > 0 }.map(\.tableShare).sorted()
+            let truth = visibleTruth.filter { $0 >= start && $0 < end }.count
             return RunNumbers(
+                visibleDataChangesPerSecond: visibleTruth.isEmpty ? nil : Double(truth) / duration,
+                screenUpdatesPerSecond: screen ? Double(tableFrames.count) / duration : nil,
+                worstSecondScreenUpdates: screen ? perSecond.compactMap(\.screenUpdates).min() : nil,
+                screenFramesPerSecond: screen ? Double(screenInWindow.count) / duration : nil,
+                screenChangedShareMedian: screen && !tableFrames.isEmpty ? tableFrames[tableFrames.count / 2] : nil,
                 seconds: duration,
                 updatesAppliedPerSecond: Double(applied.filter { $0.count > 0 }.count) / duration,
                 worstSecondUpdates: perSecond.map(\.updates).min(),
@@ -227,9 +245,21 @@ nonisolated struct SecondNumbers: Codable, Sendable {
     var updates: Int
     var busy: Double
     var changes: Int
+    var screenUpdates: Int?
 }
 
 nonisolated struct RunNumbers: Codable, Sendable {
+    /// `GINGHAM_BENCH_VISIBLE_TRUTH` on `live-trades`: callbacks after which the top rows should
+    /// look different (the data's answer, the same for every engine that applies every callback).
+    var visibleDataChangesPerSecond: Double?
+    /// Window frames a second whose changed pixels reached the table's body (ScreenCaptureKit);
+    /// null without the Screen Recording permission or with `--no-screen-meter`.
+    var screenUpdatesPerSecond: Double?
+    var worstSecondScreenUpdates: Int?
+    /// Window frames a second with any change (the top bar's numbers included).
+    var screenFramesPerSecond: Double?
+    /// The median share of the table's body that changed in a screen update.
+    var screenChangedShareMedian: Double?
     var seconds: Double
     /// Display-link callbacks that applied changes, a second.
     var updatesAppliedPerSecond: Double

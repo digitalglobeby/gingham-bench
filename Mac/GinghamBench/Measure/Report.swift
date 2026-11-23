@@ -75,6 +75,9 @@ nonisolated struct RunResult: Codable, Sendable {
     var engine: String
     var engineTitle: String
     var run: Int
+    /// nil: a measured run; "screen": a run of the separate screen-truth pass (only its screen
+    /// numbers are used).
+    var pass: String?
     /// ok; timeout (no rows within the load timeout, or a sort step too long); stuck (the main
     /// thread didn't come back after the window); invalid (the window was covered or the screen
     /// locked during the run); error.
@@ -90,6 +93,12 @@ nonisolated struct RunResult: Codable, Sendable {
     /// The order shown checked against the store after the run (live scenarios: stopped, then
     /// every row in its place; sorts: Finder's order all the way down): "ok" or what's wrong.
     var orderCheck: String?
+    /// The screen meter's state: "running", or why there are no screen numbers.
+    var screenMeter: String?
+    /// Sorts: two seconds with nothing changing after the sorts, as a check of the screen meter
+    /// (should be about 0 screen updates while the callbacks go on).
+    var quietScreenUpdatesPerSecond: Double?
+    var quietCallbacksPerSecond: Double?
     var machine: Machine
     var date: String
 
@@ -151,15 +160,18 @@ nonisolated enum Report {
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
             if id?.isSort == true {
-                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Runs |")
-                lines.append("| --- | --- | --- | --- | --- | --- |")
+                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Quiet: screen updates/s · callbacks/s | Runs |")
+                lines.append("| --- | --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | Energy | Memory | Order | Runs |")
-                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+                lines.append("| Engine | Screen updates/s (table) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | Energy | Memory | Order | Runs |")
+                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             for engine in EngineKind.allCases.map(\.rawValue) {
-                let runs = ofScenario.filter { $0.engine == engine }
-                guard let title = runs.first?.engineTitle else { continue }
+                let allRuns = ofScenario.filter { $0.engine == engine }
+                guard let title = allRuns.first?.engineTitle else { continue }
+                // The measured runs; a separate screen pass gives only the screen numbers.
+                let screenRuns = allRuns.filter { $0.status == "ok" && $0.numbers?.screenUpdatesPerSecond != nil }
+                let runs = allRuns.filter { $0.pass == nil }
                 let ok = runs.filter { $0.status == "ok" }
                 let failed = runs.filter { $0.status != "ok" }
                 let failure = failed.first.map { "\($0.status): \($0.note ?? "")" }
@@ -168,15 +180,18 @@ nonisolated enum Report {
                 let order = checks.isEmpty ? "—" : checks.allSatisfy { $0 == "ok" } ? "ok" : "WRONG: " + (checks.first { $0 != "ok" } ?? "")
                 if id?.isSort == true {
                     let sorts = ok.flatMap { $0.sorts ?? [] }
+                    let quietScreen = screenRuns.compactMap(\.quietScreenUpdatesPerSecond) + ok.compactMap(\.quietScreenUpdatesPerSecond)
+                    let quietCallbacks = allRuns.compactMap(\.quietCallbacksPerSecond)
+                    let quiet = quietScreen.isEmpty ? "—" : "\(median(quietScreen)) · \(median(quietCallbacks))"
                     guard !sorts.isEmpty else {
-                        lines.append("| \(title) | \(failure ?? "—") | | | | \(runs.count) |")
+                        lines.append("| \(title) | \(failure ?? "—") | | | | | \(runs.count) |")
                         continue
                     }
-                    lines.append("| \(title) | \(median(sorts.map(\.seconds), digits: 2, suffix: " s")) | \(median(sorts.map { Double($0.framesDuring) })) | \(median(sorts.map(\.longestFrameGapMs), suffix: " ms")) | \(order) | \(runCount) |")
+                    lines.append("| \(title) | \(median(sorts.map(\.seconds), digits: 2, suffix: " s")) | \(median(sorts.map { Double($0.framesDuring) })) | \(median(sorts.map(\.longestFrameGapMs), suffix: " ms")) | \(order) | \(quiet) | \(runCount) |")
                 } else {
                     let numbers = ok.compactMap(\.numbers)
                     guard !numbers.isEmpty else {
-                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | | | | | | | \(runs.count) |")
+                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | | | | | | | | \(runs.count) |")
                         continue
                     }
                     var changes = median(numbers.map(\.changesPerSecond))
@@ -186,14 +201,20 @@ nonisolated enum Report {
                     let ages = "\(median(numbers.compactMap(\.dataAgeP50Ms), suffix: " ms")) / \(median(numbers.compactMap(\.dataAgeP99Ms), suffix: " ms"))"
                     let presented = numbers.compactMap(\.presentedPerSecond)
                     let updates = median(numbers.map(\.updatesAppliedPerSecond)) + (presented.isEmpty ? "" : "; presented \(median(presented))*")
-                    lines.append("| \(title) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
+                    let screens = screenRuns.compactMap(\.numbers?.screenUpdatesPerSecond)
+                    let shares = screenRuns.compactMap(\.numbers?.screenChangedShareMedian)
+                    let screen = screens.isEmpty ? "— (\(ok.first?.screenMeter ?? "no meter"))"
+                        : median(screens) + (shares.isEmpty ? "" : ", \(median(shares.map { $0 * 100 }))% changed")
+                    lines.append("| \(title) | \(screen) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
                 }
             }
             lines.append("")
         }
         let hot = results.compactMap(\.numbers?.thermalState).filter { $0 != "nominal" && $0 != "fair" }
         if !hot.isEmpty { lines += ["⚠︎ \(hot.count) runs reached the thermal state \(Set(hot).sorted().joined(separator: ", ")): compare those with care.", ""] }
-        lines += ["Each value: the median of the runs (lowest–highest). Updates applied/s: display-link callbacks that applied new data",
+        lines += ["Each value: the median of the runs (lowest–highest). Screen updates/s (table): window frames ScreenCaptureKit delivered",
+                  "whose changed pixels reached the table's body (not the top bar or the header), what the eye sees; \"% changed\": the",
+                  "median share of the table's body that changed in one. Updates applied/s: display-link callbacks that applied new data",
                   "(at most the screen's refresh rate). *Presented: frames that reached the screen; only Gingham can report it",
                   "(`GHTableView.framePresented`), no other engine has a way to tell. Data age: from the time a change was due",
                   "(Binance: its arrival) to the start of the callback that applied it (that frame's apply, layout, commit and",

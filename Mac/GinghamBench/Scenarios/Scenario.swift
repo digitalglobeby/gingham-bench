@@ -76,6 +76,8 @@ protocol Scenario: AnyObject {
 struct Applied {
     var changes = 0
     var ages: [(age: Double, changes: Int)] = []
+    /// With `GINGHAM_BENCH_VISIBLE_TRUTH`: whether the rows in view should look different.
+    var visibleChanged: Bool?
 }
 
 extension Scenario {

@@ -51,6 +51,10 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
         table.showsSummaryRow = Self.showsExtras
         table.dataSource = self
         table.sortsRows = true
+        // Gingham pauses live sorting while the pointer is over the table (rows don't move under
+        // a user's pointer), by default. The other engines re-sort whatever the pointer does, so
+        // the bench turns it off: every table keeps its order live, wherever the pointer is.
+        table.pausesLiveSortUnderPointer = false
         table.sortDescriptors = descriptors(sort)
         table.reloadData()
     }

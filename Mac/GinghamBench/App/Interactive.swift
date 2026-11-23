@@ -14,6 +14,7 @@ final class InteractiveController: NSObject {
     private let options: Options
     private let ui: BenchWindow
     private let meter = Meter()
+    private var screenMeter: ScreenMeter?
     private let scenarioPopUp = NSPopUpButton()
     private let enginePopUp = NSPopUpButton()
     private let sortButton = NSButton(title: "Sort", target: nil, action: nil)
@@ -54,6 +55,13 @@ final class InteractiveController: NSObject {
         fflush(stdout)
         meter.onFrame = { [weak self] now in self?.frame(now) }
         meter.start(on: ui.container)
+        if options.screenMeter {
+            // What the eye sees: the big number is the table's screen updates when it can be measured.
+            let screenMeter = ScreenMeter(data: meter.data)
+            self.screenMeter = screenMeter
+            let (window, body, rate) = (ui.window, ui.tableBody, meter.refreshRate)
+            Task { await screenMeter.start(window: window, tableBody: body, refreshRate: rate) }
+        }
         engine = nil
         openScenario()
         Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
@@ -160,7 +168,8 @@ final class InteractiveController: NSObject {
             lastBarUpdate = now
             let second = meter.data.lastSecond(now: now)
             if engine != nil {
-                ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age, refreshRate: meter.refreshRate)
+                ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age,
+                              screen: screenMeter?.state == "running" ? second.screen : nil, refreshRate: meter.refreshRate)
             }
         }
     }

@@ -50,7 +50,7 @@ and, in window mode, `--show order-book/collection` and `--cycle 7` (switches en
 run everything:
 
 ```sh
-Scripts/run-all.sh                            # 7 scenarios × 7 engines × 3 runs of 10 s, about 75 minutes
+Scripts/run-all.sh                            # 7 scenarios × 7 engines × 3 runs of 10 s + a screen pass, about 100 minutes
 Scripts/run-all.sh --scenario live-trades     # any of the app's arguments
 ```
 
@@ -151,7 +151,12 @@ and targeted reloads inside `beginUpdates`/`endUpdates`: `insertRows(at:)`,
 columns. The data source also implements two optional calls of Gingham's data source protocol
 that hand over a range of rows' numbers at once (`numbersFor`, `sortNumbersFor`); NSTableView and
 SwiftUI have nothing like them. Gingham's change highlights and summary row are off, so every
-table shows the same; `--gingham-extras` turns them on. Its rows are drawn by the GPU.
+table shows the same; `--gingham-extras` turns them on. By default Gingham pauses live sorting
+while the pointer is over the table (so rows don't move under a user's pointer); the bench turns
+that off (`pausesLiveSortUnderPointer = false`), because the other engines re-sort wherever the
+pointer is and a pointer resting on the window would otherwise spare Gingham the re-sorting. (The
+screen meter found it: with the pointer over the window, Gingham's sorted rows didn't move during
+the feed.) Its rows are drawn by the GPU.
 [`GinghamEngine.swift`](Mac/GinghamBench/Engines/GinghamEngine.swift)
 
 ### NSTableView
@@ -286,10 +291,37 @@ Frames are counted by a `CADisplayLink` of the window's screen, asked for the sc
 its callbacks run on the main thread, once per screen refresh when the main thread is free to take
 it. Each callback applies the changes that came since the last one (above). Per engine:
 
+- **Screen updates a second (table)**: what the eye sees, measured from outside every engine. The
+  app captures its own window with ScreenCaptureKit (only that window, at up to the display's
+  rate, at half its size in points, on a background queue); it gets a frame whenever the window's
+  content changed, and a frame counts when the table's body changed: its pixel rows are compared
+  with the previous frame's (the rectangles ScreenCaptureKit reports as changed cover the whole
+  window), leaving out the top bar with its live numbers, the column header and the scroller
+  strips. Also the median share of the table's rows that changed in one. The headline number.
+  Data that changes off the screen changes no pixels: on `live-trades`, sorted by amount, only
+  about half of the frames' changes reach the 30-odd rows in view, so even an engine that applies
+  every frame's changes shows about 50–60 screen updates a second there; on the feeds whose
+  busiest rows are in view, nearly every update shows.
+  It needs the **Screen Recording permission** of the process that captures: the app's when it's
+  opened from the Finder, the terminal app's when it runs from the command line (System Settings ›
+  Privacy & Security › Screen & System Audio Recording). Without it the column says why it's
+  empty. Measured cost: within run-to-run noise for most engines, up to about 5% fewer updates for
+  one already saturated (the tuned NSTableView on `order-book`: 48 against 50–51); so `run-all.sh`
+  measures without it and runs one more round of every scenario and engine with it
+  (`--separate-screen-pass`), whose screen numbers fill the column. Each sort run also checks the
+  meter: two seconds after the sorts, with nothing changing, should give about 0 screen updates
+  while the callbacks go on. `GINGHAM_BENCH_VISIBLE_TRUTH=1` adds the data's own answer on
+  `live-trades`: the callbacks after which the 30 top rows by amount look different
+  (`visibleDataChangesPerSecond`), and whether the engine shows exactly those rows in that order
+  one frame later (printed after the run); `=26` counts the top 26 rows instead of 30. Checked
+  that way (26 rows, about those in the meter's region for every engine): Gingham 72.5 screen
+  updates a second against 69.5 data changes, the tuned NSTableView 58.8 against 59.5, the
+  cell-based one 68.3 against 69.8.
 - **Updates applied a second**: callbacks that applied new data, the times a second the table was
-  given something new to show (at most the screen's refresh rate). The headline number. Whether
-  each update then reached the screen, only Gingham can tell (`GHTableView.framePresented`); its
-  **frames presented** a second are shown next to it. No other engine has a way to report that.
+  given something new to show (at most the screen's refresh rate). Whether each update then
+  reached the screen, only Gingham can tell (`GHTableView.framePresented`); its **frames
+  presented** a second are shown next to it. No other engine has a way to report that. The window's
+  big number is the screen updates when the meter runs, and these otherwise.
 - **Data age**: from the time a change was due in the feed (Binance: its arrival from the network)
   to the start of the callback that applied it, median and 99th percentile over the changes. It
   ends there: that frame's applying, layout, commit and presentation aren't in it. Ticks keep the
@@ -377,8 +409,8 @@ Machine: _to be measured_ · Gingham _version_ · display _Hz_ · Release build 
 | Sorting 1,000,000 rows by pair (~500 distinct) | — | — | — | — | — | — | — |
 | Sorting 1,000,000 rows by account (nearly all distinct) | — | — | — | — | — | — | — |
 
-Each cell: updates shown a second · data age (median) · main thread busy (sorts: time to the
-sorted order · whether the screen kept drawing).
+Each cell: screen updates a second (table) · updates applied a second · data age (median) · main
+thread busy (sorts: time to the sorted order · whether the screen kept drawing).
 
 ## Layout of the repository
 
