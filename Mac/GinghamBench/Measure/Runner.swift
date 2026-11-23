@@ -249,7 +249,10 @@ final class ChildRun {
 
     private func frame(_ now: CFTimeInterval) {
         guard !finished, let scenario, let engine else { return }
-        if now - lastBarUpdate >= 0.25 {
+        // The trace pass keeps the top bar still until the window ends, so that every Core
+        // Animation commit of the process that reaches the display is the table's.
+        let barFrozen = options.pass == "trace" && !(window.map { now >= $0.end } ?? false) && loadedAt != nil
+        if now - lastBarUpdate >= 0.25, !barFrozen {
             lastBarUpdate = now
             let second = meter.data.lastSecond(now: now)
             ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age,
@@ -295,6 +298,10 @@ final class ChildRun {
         verifying = true
         result.loadSeconds = loadedAt.map { $0 - loadStart }
         if checkedFrames > 0 { FileHandle.standardError.write(Data("visible truth: the engine's top rows differed from the store's at \(lagFrames) of \(checkedFrames) callbacks, \(String(format: "%.1f", Double(differingPlaces) / Double(checkedFrames))) of the 30 places on average\n".utf8)) }
+        let epochOffset = Date().timeIntervalSince1970 - CACurrentMediaTime()
+        result.windowStartEpoch = window.start + epochOffset
+        result.windowEndEpoch = window.end + epochOffset
+        result.pid = ProcessInfo.processInfo.processIdentifier
         let screenRunning = screenMeter?.state == "running"
         result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline, screen: screenRunning)
         result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
@@ -492,17 +499,30 @@ enum Orchestrator {
         // runs go without the screen meter and one more round of every scenario and engine runs
         // with it (its numbers give the screen updates column).
         var jobs: [(scenario: ScenarioID, run: Int, engine: EngineKind, screen: Bool, pass: String?)] = []
-        for scenario in options.scenarios {
+        for scenario in options.scenarios where !options.onlyTracePass {
             for run in 1...options.runs {
                 for engine in options.engines {
                     jobs.append((scenario, run, engine, options.screenMeter && !options.separateScreenPass, nil))
                 }
             }
         }
-        if options.separateScreenPass, options.screenMeter {
+        if options.separateScreenPass, options.screenMeter, !options.onlyTracePass {
             for scenario in options.scenarios {
                 for engine in options.engines { jobs.append((scenario, 1, engine, true, "screen")) }
             }
+        }
+        // `--trace-pass`: one more run of every engine on the key live scenarios, recorded by
+        // Instruments (Animation Hitches), whose trace gives the system's count of the window's
+        // frames (`TraceFrames`), next to the screen meter of the same run.
+        // One trace on the disk at a time, in the caches: recorded, read, deleted.
+        let traceDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("gingham-bench-traces").path
+        if options.tracePass || options.onlyTracePass {
+            let key = options.scenarios.filter { $0 == .liveTrades || $0 == .orderBook }
+            for scenario in key.isEmpty ? options.scenarios.filter({ !$0.isSort }) : key {
+                for engine in options.engines { jobs.append((scenario, 1, engine, options.screenMeter, "trace")) }
+            }
+            try? FileManager.default.createDirectory(atPath: traceDirectory, withIntermediateDirectories: true)
         }
         let total = jobs.count
         var done = 0
@@ -513,8 +533,30 @@ enum Orchestrator {
                     print("[\(done)/\(total)] \(scenario.rawValue) · \(engine.title) · \(pass.map { "\($0) pass" } ?? "run \(run)")", terminator: "")
                     fflush(stdout)
                     let process = Process()
+                    var childArguments = options.childArguments(scenario: scenario, engine: engine, run: run, output: output, screenMeter: screen, pass: pass)
+                    let tracePath = "\(traceDirectory)/\(scenario.rawValue)-\(engine.rawValue).trace"
+                    if pass == "trace" {
+                        // A short run, so that the trace stays under 10 seconds: 2 s of warm-up
+                        // (Instruments attaches meanwhile) and 4 s measured.
+                        childArguments += ["--warmup", "2", "--seconds", "4"]
+                        // Room for a trace: stop under 40 GB free.
+                        let free = (try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+                        if free < 40_000_000_000 {
+                            print(" — stopped: \(free / 1_000_000_000) GB free, the trace pass needs 40")
+                            break
+                        }
+                    }
+                    // One bench window at a time: no other copy of the app may be running.
+                    let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+                        .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+                    if !others.isEmpty {
+                        print(" — another copy of the app is running (pid \(others.map(\.processIdentifier))); it is asked to quit first", terminator: "")
+                        others.forEach { $0.terminate() }
+                        Thread.sleep(forTimeInterval: 2)
+                        others.filter { !$0.isTerminated }.forEach { $0.forceTerminate() }
+                    }
                     process.executableURL = executable
-                    process.arguments = options.childArguments(scenario: scenario, engine: engine, run: run, output: output, screenMeter: screen, pass: pass)
+                    process.arguments = childArguments
                     // The child's output in a file (a pipe could fill up and block it).
                     let log = FileManager.default.temporaryDirectory.appendingPathComponent("gingham-bench-child-\(UUID().uuidString).txt")
                     FileManager.default.createFile(atPath: log.path, contents: nil)
@@ -526,6 +568,32 @@ enum Orchestrator {
                         print(" — couldn't start: \(error.localizedDescription)")
                         failures += 1
                         continue
+                    }
+                    // The trace pass: Instruments attaches to this very process (launched by xctrace,
+                    // a path inside an app bundle goes through Launch Services, which may start
+                    // another copy of the app with the same bundle id).
+                    var recorder: Process?
+                    if pass == "trace" {
+                        try? FileManager.default.removeItem(atPath: tracePath)
+                        let xctrace = Process()
+                        xctrace.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+                        // Only the instruments with the tables read (`TraceFrames`): the whole Animation
+                        // Hitches template (with its time profiler, thread states and hang detection)
+                        // slowed the traced run to 60 frames a second.
+                        xctrace.arguments = ["xctrace", "record", "--instrument", "Hitches", "--instrument", "Display", "--no-prompt",
+                                             "--output", tracePath, "--time-limit", "10s", "--attach", String(process.processIdentifier)]
+                        xctrace.standardOutput = FileHandle.nullDevice
+                        xctrace.standardError = FileHandle.nullDevice
+                        try? xctrace.run()
+                        recorder = xctrace
+                    }
+                    defer {
+                        if let recorder {
+                            // (It ends when the process it records exits, and saves the trace.)
+                            let saved = Date().addingTimeInterval(120)
+                            while recorder.isRunning, Date() < saved { Thread.sleep(forTimeInterval: 0.2) }
+                            if recorder.isRunning { recorder.interrupt() }
+                        }
                     }
                     // A child that outlives every timeout of its own is stopped.
                     let limit = Date().addingTimeInterval(options.loadTimeout + options.warmup(for: scenario) + options.seconds + 660)
@@ -540,6 +608,13 @@ enum Orchestrator {
                     let line = text.split(separator: "\n").last { $0.hasPrefix("RESULT ") }
                     if let line {
                         print(" — " + summary(of: String(line.dropFirst(7))))
+                        if pass == "trace", let recorder {
+                            let saved = Date().addingTimeInterval(120)
+                            while recorder.isRunning, Date() < saved { Thread.sleep(forTimeInterval: 0.2) }
+                            addSystemFrames(output: output, scenario: scenario, engine: engine, trace: tracePath)
+                            // Its numbers are saved: the trace goes (`--keep-traces` keeps it).
+                            if !options.keepTraces { try? FileManager.default.removeItem(atPath: tracePath) }
+                        }
                     } else {
                         // Ended without a result (a crash macOS caught first, a kill): reported as a failed run.
                         let how = process.terminationReason == .uncaughtSignal ? "signal \(process.terminationStatus)" : "exit status \(process.terminationStatus)"
@@ -561,6 +636,28 @@ enum Orchestrator {
         print("\n" + markdown)
         print("Wrote \(output) and \(markdownPath)")
         return failures == 0 ? 0 : 1
+    }
+
+    /// The system's frames of a trace-pass run, from its trace, written into its result line.
+    private static func addSystemFrames(output: String, scenario: ScenarioID, engine: EngineKind, trace: String) {
+        var results = Report.read(output)
+        guard let index = results.lastIndex(where: { $0.scenario == scenario.rawValue && $0.engine == engine.rawValue && $0.pass == "trace" }),
+              let pid = results[index].pid, let start = results[index].windowStartEpoch, let end = results[index].windowEndEpoch else {
+            print("   (no window or process to find in the trace)")
+            return
+        }
+        guard let frames = TraceFrames.measure(trace: trace, pid: pid, from: start, to: end) else {
+            print("   (the trace couldn't be read: \(trace))")
+            return
+        }
+        results[index].systemFrames = frames
+        let text = results.map(\.jsonLine).joined(separator: "\n") + "\n"
+        try? text.write(toFile: output, atomically: true, encoding: .utf8)
+        let numbers = results[index].numbers
+        func shown(_ value: Double?) -> String { value.map { String(format: "%.1f", $0) } ?? "—" }
+        print("   system: \(shown(frames.framesShownPerSecond)) frames shown/s (commits \(shown(frames.clientUpdatesPerSecond)), GPU frames \(shown(frames.gpuFramesPerSecond)), shown \(shown(frames.gpuFramesShownPerSecond)); window covered \(shown((frames.windowCovered ?? 0) * 100))%)"
+              + " · screen meter \(shown(numbers?.screenUpdatesPerSecond)) · visible changes \(shown(numbers?.visibleDataChangesPerSecond))"
+              + " · presented \(shown(numbers?.presentedPerSecond)) · applied \(shown(numbers?.updatesAppliedPerSecond))")
     }
 
     static func stamp() -> String {

@@ -8,6 +8,8 @@
 #                                               timeouts, and sorts on the main thread take a while)
 #   Scripts/run-all.sh --scenario live-trades   any of the app's arguments (see Mac/GinghamBench/App/Options.swift)
 #   Scripts/run-all.sh --runs 5 --seconds 20
+#   Scripts/run-all.sh --trace-pass             also one Instruments-traced run of each engine on live-trades and
+#                                               order-book: the system's count of the window's frames (~8 minutes more)
 #
 # For numbers worth comparing: a quiet Mac (other apps closed, nothing building or syncing), on
 # power, Low Power Mode off, the window on the built-in display (it opens on the display with the

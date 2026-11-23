@@ -119,6 +119,8 @@ final class BenchWindow {
             window.setFrameOrigin(NSPoint(x: area.midX - window.frame.width / 2, y: area.midY - window.frame.height / 2))
         }
         window.level = .floating
+        // Also over an app in full screen (in its own Space a new window would open behind it).
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     }
 
     func show() {

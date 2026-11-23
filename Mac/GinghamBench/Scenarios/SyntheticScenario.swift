@@ -22,6 +22,9 @@ final class FeedStore: BenchSource, ColumnArrays {
     private var texts: [[String]]
     private var keys: [Int] = []
     private let isText: [Bool]
+    /// Visible-truth check (unsorted feeds): whether the last batch touched one of the first rows
+    /// (the rows in view of a table in the store's order).
+    private(set) var touchedTopRows = false
     /// Updates not yet told to the engine.
     private var pendingRows: [Int] = []
     private var pendingMasks: [UInt64] = []
@@ -74,6 +77,8 @@ final class FeedStore: BenchSource, ColumnArrays {
         let width = columns.count
         var valueIndex = 0
         var insertedFrom: Int?
+        let topRows = SyntheticScenario.truthRows
+        touchedTopRows = false
         func flushInserts() {
             if let first = insertedFrom, first < rowCount { engine?.insertRows(first..<rowCount) }
             insertedFrom = nil
@@ -84,6 +89,7 @@ final class FeedStore: BenchSource, ColumnArrays {
             case .delete:
                 flushInserts()
                 flushUpdates(engine: engine)
+                if row < topRows { touchedTopRows = true }
                 removeRow(row)
                 engine?.removeRowReplacingWithLast(row)
             case .insert:
@@ -101,6 +107,7 @@ final class FeedStore: BenchSource, ColumnArrays {
                 rowCount += 1
             case .update:
                 flushInserts()
+                if row < topRows { touchedTopRows = true }
                 write(batch.values[valueIndex ..< valueIndex + width], row: row, mask: batch.masks[index])
                 valueIndex += width
                 pendingRows.append(row)
@@ -214,13 +221,14 @@ final class SyntheticScenario: Scenario {
         var applied = Applied(changes: store.apply(batch, engine: engine))
         engine?.endUpdates()
         for tick in batch.ticks { applied.ages.append((time - tick.time, tick.changes)) }
-        if Self.checksVisibleTruth, model == .trades { applied.visibleChanged = topRowsChanged() }
+        if Self.checksVisibleTruth { applied.visibleChanged = model == .trades ? topRowsChanged() : store.touchedTopRows }
         return applied
     }
 
-    /// `GINGHAM_BENCH_VISIBLE_TRUTH` (a check of the screen meter on `live-trades`): whether the
-    /// rows a table sorted by amount shows at the top (the first 30) look different after this
-    /// batch, whatever the engine: the data's own answer to "should the screen change now?".
+    /// `GINGHAM_BENCH_VISIBLE_TRUTH` (a check of the screen meter): whether the rows in view should
+    /// look different after this batch, whatever the engine: the data's own answer to "should the
+    /// screen change now?". On `live-trades` (sorted by amount) the top rows' text; on the
+    /// unsorted feeds, whether a change touched one of the first rows.
     static let checksVisibleTruth = ProcessInfo.processInfo.environment["GINGHAM_BENCH_VISIBLE_TRUTH"] != nil
     /// How many top rows (`GINGHAM_BENCH_VISIBLE_TRUTH=<rows>`; 1 or any other value: 30).
     static let truthRows = Int(ProcessInfo.processInfo.environment["GINGHAM_BENCH_VISIBLE_TRUTH"] ?? "").flatMap { $0 > 1 ? $0 : nil } ?? 30

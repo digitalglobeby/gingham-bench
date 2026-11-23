@@ -27,6 +27,9 @@
 //    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
 //    --no-screen-meter         no ScreenCaptureKit capture of the window (no screen updates/s)
 //    --separate-screen-pass    measured runs without the screen meter, then one round of all with it
+//    --trace-pass              one more run of every engine on live-trades and order-book recorded with Instruments
+//                              (Animation Hitches): the system's count of the window's frames
+//    --only-trace-pass         only those runs; --keep-traces keeps the traces (in ~/Library/Caches/gingham-bench-traces)
 //    --calibrate-feed MODEL    prints the row changes a second a generated feed makes (trades, orders, instruments)
 //    --cycle N                 window mode: switch engines every N seconds (for recording); --quit after a round
 //
@@ -55,6 +58,9 @@ struct Options {
     var crashReports = false
     var screenMeter = true
     var separateScreenPass = false
+    var tracePass = false
+    var onlyTracePass = false
+    var keepTraces = false
     var pass: String?
     var cycle: Double?
     var quitAfterCycle = false
@@ -122,6 +128,9 @@ struct Options {
             case "--crash-reports": options.crashReports = true
             case "--no-screen-meter": options.screenMeter = false
             case "--separate-screen-pass": options.separateScreenPass = true
+            case "--trace-pass": options.tracePass = true
+            case "--only-trace-pass": options.onlyTracePass = true
+            case "--keep-traces": options.keepTraces = true
             case "--pass": options.pass = try value(argument)
             case "--cycle": options.cycle = try number(argument)
             case "--quit": options.quitAfterCycle = true
