@@ -178,14 +178,14 @@ final class SyntheticScenario: Scenario {
         self.model = model
         self.rows = rows ?? model.rows
         store = FeedStore(model: model)
-        sort = sortByAmount ? [SortSpec(column: 5, ascending: false)] : []
+        sort = sortByAmount ? [SortSpec(column: model == .wideTrades ? 12 : 5, ascending: false)] : []
     }
 
     /// The row changes a second the model makes (a row's changes within a tick count once),
     /// measured with `--calibrate-feed`.
     var nominalChanges: Int {
         switch model {
-        case .trades: 44_800
+        case .trades, .wideTrades: 44_800
         case .orders: 243_500
         case .instruments: 300_000
         }
@@ -197,6 +197,7 @@ final class SyntheticScenario: Scenario {
         let what: String
         switch model {
         case .trades: what = "trades sorted by amount"
+        case .wideTrades: what = "trades sorted by amount, 24 columns"
         case .orders: what = "orders"
         case .instruments: what = "instruments, 23 columns"
         }
@@ -221,7 +222,7 @@ final class SyntheticScenario: Scenario {
         var applied = Applied(changes: store.apply(batch, engine: engine))
         engine?.endUpdates()
         for tick in batch.ticks { applied.ages.append((time - tick.time, tick.changes)) }
-        if Self.checksVisibleTruth { applied.visibleChanged = model == .trades ? topRowsChanged() : store.touchedTopRows }
+        if Self.checksVisibleTruth { applied.visibleChanged = model == .trades || model == .wideTrades ? topRowsChanged() : store.touchedTopRows }
         return applied
     }
 
@@ -237,7 +238,7 @@ final class SyntheticScenario: Scenario {
     private(set) var topRows: [Int] = []
 
     private func topRowsChanged() -> Bool {
-        let amounts = store.numberArray(5) ?? []
+        let amounts = store.numberArray(model == .wideTrades ? 12 : 5) ?? []
         var top: [Int] = []
         for row in amounts.indices {
             if top.count < Self.truthRows || amounts[row] > amounts[top[top.count - 1]] {

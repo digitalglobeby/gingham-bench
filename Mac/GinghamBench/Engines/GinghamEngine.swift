@@ -38,7 +38,7 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
         table.rowHeight = 20
         table.usesAlternatingRowBackgroundColors = true
         table.columns = specs.map { spec in
-            var column = GHTableColumn(spec.id, title: spec.title, width: spec.width,
+            var column = GHTableColumn(spec.id, title: spec.title, width: spec.pitch,
                                        alignment: spec.isTrailing ? .trailing : .leading,
                                        headerAlignment: spec.isTrailing ? .trailing : .leading)
             column.format = BenchFormat.ginghamFormat(spec)
@@ -74,6 +74,10 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
     var isSorting: Bool { table.isSortingRows }
     func sourceRow(atDisplayIndex index: Int) -> Int? { table.row(atDisplayIndex: index) }
     var displayedRowCount: Int { table.numberOfDisplayedRows }
+    /// The rows and columns Gingham shows in its bounds (its accessibility's visible rows and columns).
+    var rendered: (rows: Int, columns: Int)? {
+        (table.accessibilityVisibleRows()?.count ?? 0, table.accessibilityVisibleColumns()?.count ?? 0)
+    }
 
     var framePresented: (() -> Void)? {
         get { presented }

@@ -41,7 +41,7 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
         tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.rowSizeStyle = .custom
         tableView.rowHeight = 20
-        tableView.intercellSpacing = NSSize(width: 6, height: 0)
+        tableView.intercellSpacing = NSSize(width: ColumnSpec.spacing, height: 0)
         tableView.dataSource = self
         tableView.delegate = self
         scrollView.wantsLayer = true
@@ -131,6 +131,10 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     var isSorting: Bool { rows.isSorting }
     var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { tableView.numberOfRows }
+
+    var rendered: (rows: Int, columns: Int)? {
+        (tableView.rows(in: tableView.visibleRect).length, tableView.columnIndexes(in: tableView.visibleRect).count)
+    }
 
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard index >= 0, index < rows.count else { return nil }

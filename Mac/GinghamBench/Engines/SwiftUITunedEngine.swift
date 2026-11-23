@@ -182,6 +182,12 @@ struct SwiftUITunedTableView: View {
                 Group { sized(10); sized(11); sized(12); sized(13); sized(14); sized(15); sized(16); sized(17); sized(18); sized(19) }
                 Group { sized(20); sized(21); sized(22) }
             }
+        case 24:
+            Table(model.rows, sortOrder: $model.sortOrder) {
+                Group { sized(0); sized(1); sized(2); sized(3); sized(4); sized(5); sized(6); sized(7); sized(8); sized(9) }
+                Group { sized(10); sized(11); sized(12); sized(13); sized(14); sized(15); sized(16); sized(17); sized(18); sized(19) }
+                Group { sized(20); sized(21); sized(22); sized(23) }
+            }
         default:
             Text("No static table for \(model.columns.count) columns")
         }
@@ -237,7 +243,7 @@ final class SwiftUITunedEngine: Engine {
     func load(_ source: BenchSource, sort: [SortSpec]) {
         self.source = source
         model.columns = source.columns.enumerated().map { index, spec in
-            SwiftUIColumn(id: index, title: spec.title, width: spec.width, kind: spec.kind, digits: spec.digits)
+            SwiftUIColumn(id: index, title: spec.title, width: spec.pitch - ColumnSpec.swiftUISpacing, kind: spec.kind, digits: spec.digits)
         }
         isSettingSortOrder = true
         model.sortOrder = sort.map { SlotComparator(slot: $0.column, order: $0.ascending ? .forward : .reverse) }
@@ -389,6 +395,13 @@ final class SwiftUITunedEngine: Engine {
     }
 
     var displayedRowCount: Int { model.rows.count }
+
+    /// The rows and columns of the NSTableView SwiftUI's Table is made of, in its visible rect.
+    var rendered: (rows: Int, columns: Int)? {
+        if innerTable == nil { innerTable = Self.findTable(in: view) }
+        guard let table = innerTable else { return nil }
+        return (table.rows(in: table.visibleRect).length, table.columnIndexes(in: table.visibleRect).count)
+    }
 
     private var rowOfID: [Int: Int] = [:]
 

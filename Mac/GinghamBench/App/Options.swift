@@ -7,8 +7,9 @@
 //
 //    "Gingham Bench" --scenario live-trades --engine all --seconds 10 --runs 3 --output results/run.jsonl
 //
-//    --scenario <id|all|live>  live-trades, order-book, trade-feed, binance-tickers, binance-books,
-//                              sort-text (by pair), sort-text-account; "all"; "live" (no sorts); a comma list
+//    --scenario <id|all|live>  live-trades, order-book, trade-feed, wide-trades (live trades with 24 columns),
+//                              binance-tickers, binance-books, sort-text (by pair), sort-text-account; "all";
+//                              "live" (no sorts); a comma list
 //    --engine <id|all>         gingham, nstable, nstable-tuned, nstable-cells, collection, swiftui,
 //                              swiftui-tuned; "all"; a comma list
 //    --seconds N               measured seconds per run (10)
@@ -18,7 +19,10 @@
 //    --rows N                  another number of rows than the scenario's
 //    --binance-domain D        binance.com (or binance.us)
 //    --load-timeout N          seconds an engine may take to show its rows (30)
-//    --window WxH              the window's content size (1000x640)
+//    --window WxH              the window's content size (1000x640); larger than the screen, e.g. 3840x2160 on a
+//                              MacBook, it keeps its size (top left on the screen's), and the table lays out all of it
+//    --screen NAME             the display to open on (a part of its name, e.g. "LG"); default: the one with the
+//                              highest refresh rate
 //    --gingham-extras          Gingham also highlights changes and shows a summary row
 //    --swiftui-diff-moves      the tuned SwiftUI Table gets reordered rows without a new .id (SwiftUI diffs the moves)
 //    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout);
@@ -26,12 +30,12 @@
 //    --check-formats           prints where the other engines' number text differs from Gingham's
 //    --self-test               replays order book changes into every engine (no network) and checks their order
 //    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
-//    --no-screen-meter         no ScreenCaptureKit capture of the window (no screen updates/s)
+//    --no-screen-meter         no ScreenCaptureKit capture of the window (no frames with new data/s)
 //    --separate-screen-pass    measured runs without the screen meter, then one round of all with it
 //    --trace-pass              one more run of every engine on live-trades and order-book recorded with Instruments
 //                              (Animation Hitches): the system's count of the window's frames
 //    --only-trace-pass         only those runs; --keep-traces keeps the traces (in ~/Library/Caches/gingham-bench-traces)
-//    --calibrate-feed MODEL    prints the row changes a second a generated feed makes (trades, orders, instruments)
+//    --calibrate-feed MODEL    prints the row changes a second a generated feed makes (trades, orders, instruments, wideTrades)
 //    --cycle N                 window mode: switch engines every N seconds (for recording); --quit after a round
 //
 
@@ -50,6 +54,8 @@ struct Options {
     var binanceDomain = "binance.com"
     var loadTimeout: Double = 30
     var windowSize = NSSize(width: 1000, height: 640)
+    /// The display to open on (a part of its name); nil: the one with the highest refresh rate.
+    var screenName: String?
     var ginghamExtras = false
     var swiftUIDiffsMoves = false
     var summarize: String?
@@ -139,6 +145,7 @@ struct Options {
             case "--pass": options.pass = try value(argument)
             case "--cycle": options.cycle = try number(argument)
             case "--quit": options.quitAfterCycle = true
+            case "--screen": options.screenName = try value(argument)
             case "--child": options.isChild = true
             case "--show":
                 // Window mode: the scenario and engine to open with.
@@ -167,6 +174,7 @@ struct Options {
         if crashReports { arguments.append("--crash-reports") }
         if !screenMeter { arguments.append("--no-screen-meter") }
         if let pass { arguments += ["--pass", pass] }
+        if let screenName { arguments += ["--screen", screenName] }
         return arguments
     }
 }

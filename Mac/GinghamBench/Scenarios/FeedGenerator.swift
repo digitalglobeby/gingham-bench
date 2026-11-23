@@ -126,10 +126,12 @@ nonisolated struct FeedBatch: Sendable {
 
 nonisolated enum FeedModel: String, Sendable {
     case trades, orders, instruments
+    /// The live trades with 24 columns, as a trading terminal shows them (`wide-trades`).
+    case wideTrades
 
     var rows: Int {
         switch self {
-        case .trades: 20_000
+        case .trades, .wideTrades: 20_000
         case .orders: 200_000
         case .instruments: 1_000_000
         }
@@ -139,7 +141,7 @@ nonisolated enum FeedModel: String, Sendable {
     /// continuously and an engine fast enough can show new data at every screen frame.
     var tickInterval: Double {
         switch self {
-        case .trades: 1.0 / 240
+        case .trades, .wideTrades: 1.0 / 240
         case .orders: 0.002
         case .instruments: 0.004
         }
@@ -157,6 +159,34 @@ nonisolated enum FeedModel: String, Sendable {
                 ColumnSpec(id: "amount", title: "Amount", width: 130, kind: .number, digits: 2),
                 ColumnSpec(id: "change", title: "Change %", width: 90, kind: .number, digits: 2),
                 ColumnSpec(id: "updates", title: "Updates", width: 80, kind: .number, digits: 0),
+            ]
+        case .wideTrades:
+            // About 2,000 points wide with the spacing between columns.
+            return [
+                ColumnSpec(id: "trade", title: "Trade", width: 64, kind: .number, digits: 0),
+                ColumnSpec(id: "pair", title: "Pair", width: 86, kind: .text),
+                ColumnSpec(id: "venue", title: "Venue", width: 50, kind: .text),
+                ColumnSpec(id: "account", title: "Account", width: 130, kind: .text),
+                ColumnSpec(id: "side", title: "Side", width: 44, kind: .text),
+                ColumnSpec(id: "status", title: "Status", width: 76, kind: .text),
+                ColumnSpec(id: "price", title: "Price", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "bid", title: "Bid", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "ask", title: "Ask", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "spread", title: "Spread", width: 58, kind: .number, digits: 2),
+                ColumnSpec(id: "mid", title: "Mid", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "size", title: "Last size", width: 70, kind: .number, digits: 2),
+                ColumnSpec(id: "amount", title: "Amount", width: 100, kind: .number, digits: 2),
+                ColumnSpec(id: "open", title: "Open", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "high", title: "High", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "low", title: "Low", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "change", title: "Change", width: 66, kind: .number, digits: 2),
+                ColumnSpec(id: "changePercent", title: "Change %", width: 66, kind: .percent, digits: 2),
+                ColumnSpec(id: "vwap", title: "VWAP", width: 78, kind: .number, digits: 2),
+                ColumnSpec(id: "volume", title: "Volume", width: 86, kind: .number, digits: 2),
+                ColumnSpec(id: "notional", title: "Notional", width: 104, kind: .number, digits: 0),
+                ColumnSpec(id: "trades", title: "Trades", width: 54, kind: .number, digits: 0),
+                ColumnSpec(id: "updated", title: "Updated", width: 100, kind: .time),
+                ColumnSpec(id: "fee", title: "Fee", width: 62, kind: .number, digits: 2),
             ]
         case .orders:
             return [
@@ -192,8 +222,12 @@ nonisolated enum FeedModel: String, Sendable {
     func text(column: Int, code: Double) -> String {
         let code = Int(code)
         switch (self, column) {
-        case (.trades, 1): return FeedNames.pairs[code]
+        case (.trades, 1), (.wideTrades, 1): return FeedNames.pairs[code]
         case (.trades, 2): return code == 1 ? "Sell" : "Buy"
+        case (.wideTrades, 2): return FeedNames.venues[code % FeedNames.venues.count]
+        case (.wideTrades, 3): return FeedNames.accounts[code % FeedNames.accounts.count]
+        case (.wideTrades, 4): return code == 1 ? "Sell" : "Buy"
+        case (.wideTrades, 5): return FeedNames.tradeStatuses[code % FeedNames.tradeStatuses.count]
         case (.orders, 0): return "o\(code)"
         case (.orders, 1), (.instruments, 1): return FeedNames.symbols[code % FeedNames.symbols.count]
         case (.orders, 2), (.instruments, 2): return FeedNames.venues[code % FeedNames.venues.count]
@@ -227,6 +261,13 @@ nonisolated enum FeedNames {
     static let symbols: [String] = quotes.flatMap { quote in bases.map { "\($0)-\(quote)" } }
     static let venues = ["CB", "BN", "KR", "BS", "OK", "BY", "HT", "GT"]
     static let statuses = ["Active", "Halted", "Auction", "Closed"]
+    static let tradeStatuses = ["Executed", "Confirmed", "Allocated", "Settling", "Amended"]
+    static let accounts: [String] = {
+        let first = ["Northwind", "Blue Harbor", "Ålesund", "Zürich", "Évora", "Kyoto", "Lakeside", "Oak Ridge", "Silverline", "Acme",
+                     "Bright Path", "Coastal", "Delta", "Granite", "Ironwood", "Juniper"]
+        let second = ["Capital", "Partners", "Trading", "Fund"]
+        return first.flatMap { name in second.map { "\(name) \($0)" } }
+    }()
     static let notes = ["watch", "rebalance", "news pending", "earnings", "low liquidity", "index change", "split", "dividend",
                         "maintenance", "delisting review", "margin call", "halt risk", "new listing", "large holder", "audit",
                         "roadmap", "fork", "airdrop", "unlock", "governance vote"]
@@ -287,7 +328,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         random = SeededRandom(seed: seed &* 0x9E37_79B9_7F4A_7C15 &+ UInt64(model.rawValue.count))
         let rows = rows ?? model.rows
         switch model {
-        case .trades:
+        case .trades, .wideTrades:
             picksPerRow = 0
             insertsPerSecond = 0
             tradeChanges = 45_000
@@ -309,6 +350,8 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         switch model {
         case .trades:
             for row in 0..<rows { appendTrade(row) }
+        case .wideTrades:
+            for row in 0..<rows { appendWideTrade(row) }
         case .orders:
             let instruments = min(512, max(16, rows / 400))
             mids = (0..<instruments).map { index in
@@ -320,7 +363,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         case .instruments:
             for _ in 0..<rows { appendInstrument(initial: true) }
         }
-        if model != .trades { picker = ZipfPicker(count: rows, exponent: 1) }
+        if model != .trades, model != .wideTrades { picker = ZipfPicker(count: rows, exponent: 1) }
         touched = [Int32](repeating: -1, count: count)
     }
 
@@ -341,6 +384,59 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         cells += [Double(row + 1), Double(pair), isSell ? 1 : 0, base, quantity, base * quantity, 0, 0]
         extra.append(base)
         count += 1
+    }
+
+    /// A wide trade: the live trade's own fields (the same generator, so the same prices and
+    /// quantities as `live-trades`) and what a terminal derives from them.
+    private func appendWideTrade(_ row: Int) {
+        let pair = Int(lcgNext() % UInt64(FeedNames.pairs.count))
+        let isSell = lcgNext() % 2 == 0
+        let base = 10 + Double(pair * 37 % 900) * (1 + Double(row % 7) / 10)
+        let quantity = Double(lcgNext() % 100_000) / 100
+        let spread = base * (0.0002 + 0.001 * random.uniform())
+        let amount = base * quantity
+        cells += [Double(row + 1), Double(pair), Double(random.below(FeedNames.venues.count)), Double(random.below(FeedNames.accounts.count)),
+                  isSell ? 1 : 0, Double(random.below(2)), base, base - spread / 2, base + spread / 2, spread, base, quantity, amount,
+                  base, base, base, 0, 0, base, quantity, amount, 0, time - random.uniform(0..<60_000_000), amount * 0.0005]
+        extra.append(base)
+        count += 1
+    }
+
+    private func tickWideTrades(into batch: inout FeedBatch) {
+        for _ in 0..<Self.takeCarry(&changeCarry, tradeChanges * tickInterval) {
+            let row = Int(lcgNext() % UInt64(count))
+            let step = Double(Int(lcgNext() % 2001) - 1000) / 100_000
+            let price = max(0.01, cell(row, 6) * (1 + step))
+            let quantity = Double(lcgNext() % 100_000) / 100
+            let open = extra[row]
+            let spread = price * (0.0002 + 0.001 * random.uniform())
+            let amount = price * quantity
+            set(row, 6, price)
+            set(row, 7, price - spread / 2)
+            set(row, 8, price + spread / 2)
+            set(row, 9, spread)
+            set(row, 10, price)
+            set(row, 11, quantity)
+            set(row, 12, amount)
+            // Price through amount (6–12) and high through fee (14–23): not open (13).
+            var mask: UInt64 = 0xFF_DFC0
+            if price > cell(row, 14) { set(row, 14, price) } else { mask &= ~(1 << 14) }
+            if price < cell(row, 15) { set(row, 15, price) } else { mask &= ~(1 << 15) }
+            set(row, 16, price - open)
+            set(row, 17, price / open - 1)
+            set(row, 19, cell(row, 19) + quantity)
+            set(row, 20, cell(row, 20) + amount)
+            set(row, 18, cell(row, 20) / cell(row, 19))
+            set(row, 21, cell(row, 21) + 1)
+            set(row, 22, time)
+            set(row, 23, amount * 0.0005)
+            if random.uniform() < 0.01 {
+                set(row, 5, Double(random.below(FeedNames.tradeStatuses.count)))
+                mask |= 1 << 5
+            }
+            touch(row, mask, firstInserted: count)
+        }
+        emitUpdates(into: &batch)
     }
 
     private func appendOrder(initial: Bool) {
@@ -428,6 +524,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         time += dt * 1_000_000
         switch model {
         case .trades: tickTrades(into: &batch)
+        case .wideTrades: tickWideTrades(into: &batch)
         case .orders, .instruments: tickRows(dt: dt, into: &batch)
         }
     }

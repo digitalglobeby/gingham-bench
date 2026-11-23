@@ -147,7 +147,7 @@ final class SwiftUIEngine: Engine {
     func load(_ source: BenchSource, sort: [SortSpec]) {
         self.source = source
         model.columns = source.columns.enumerated().map { index, spec in
-            SwiftUIColumn(id: index, title: spec.title, width: spec.width, kind: spec.kind, digits: spec.digits)
+            SwiftUIColumn(id: index, title: spec.title, width: spec.pitch - ColumnSpec.swiftUISpacing, kind: spec.kind, digits: spec.digits)
         }
         isSettingSortOrder = true
         model.sortOrder = sort.map { SwiftUIRowComparator(column: $0.column, order: $0.ascending ? .forward : .reverse) }
@@ -264,6 +264,13 @@ final class SwiftUIEngine: Engine {
     }
 
     var displayedRowCount: Int { model.rows.count }
+
+    /// The rows and columns of the NSTableView SwiftUI's Table is made of, in its visible rect.
+    var rendered: (rows: Int, columns: Int)? {
+        if innerTable == nil { innerTable = Self.findTable(in: view) }
+        guard let table = innerTable else { return nil }
+        return (table.rows(in: table.visibleRect).length, table.columnIndexes(in: table.visibleRect).count)
+    }
 
     /// Rows are found by their records' identity (made again when a check starts at place 0).
     private var rowOfID: [Int: Int] = [:]

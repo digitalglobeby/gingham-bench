@@ -122,6 +122,11 @@ nonisolated struct RunResult: Codable, Sendable {
     /// The table's size in points (`--window`) and in pixels.
     var window: String?
     var windowPixels: String?
+    /// The rows and columns the engine laid out for its view at the end of the window.
+    var renderedRows: Int?
+    var renderedColumns: Int?
+    /// The part of the window on the screen (points), when the window is larger than the screen.
+    var onScreen: String?
     var windowEndEpoch: Double?
     var pid: Int32?
     /// From a system trace of the run (`Scripts/trace-frames.py`).
@@ -202,6 +207,10 @@ nonisolated enum Report {
         if let window { setup.append("Table window \(times(window)) points" + (pixels.map { " (\(times($0)) pixels)" } ?? "")) }
         if windows.count > 1 { setup.append("several window sizes: \(windows.sorted().map(times).joined(separator: ", ")) points") }
         if let display { setup.append("display \(display)") }
+        if let shown = results.compactMap(\.onScreen).first, let window {
+            let screen = window == "3840x2160" ? "4K display" : "\(times(window))-point display"
+            setup.append("a table larger than the screen (\(times(shown)) points of the window on it): what a \(screen) at \(first.machine.refreshRate) Hz would show")
+        }
         if !setup.isEmpty { lines += [setup.joined(separator: " · "), ""] }
         let machines = Set(results.map(\.machine.line))
         if machines.count > 1 { lines += ["Note: these runs come from \(machines.count) different setups.", ""] }
@@ -213,15 +222,19 @@ nonisolated enum Report {
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
             if id?.isSort == true {
-                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Quiet: screen updates/s · callbacks/s | Runs |")
+                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Screen updates/s (table) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | CPU energy | Memory | Order | Runs |")
+                lines.append("| Engine | Frames with new data/s (max \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | CPU energy | Memory | Order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
+            var laidOut: [String] = []
             for engine in EngineKind.allCases.map(\.rawValue) {
                 let allRuns = ofScenario.filter { $0.engine == engine }
                 guard let title = allRuns.first?.engineTitle else { continue }
+                if let run = allRuns.last(where: { $0.status == "ok" && $0.renderedRows != nil }), let rows = run.renderedRows {
+                    laidOut.append("\(title) \(rows) × \(run.renderedColumns ?? 0)")
+                }
                 // The measured runs; a separate screen pass gives only the screen numbers.
                 // Screen numbers from runs not recorded by Instruments (a traced run is slower).
                 let screenRuns = allRuns.filter { $0.status == "ok" && $0.pass != "trace" && $0.numbers?.screenUpdatesPerSecond != nil }
@@ -285,19 +298,26 @@ nonisolated enum Report {
                 }
             }
             lines.append("")
+            if id?.isSort != true {
+                lines += ["Frames with new data: how many times a second the table's picture actually changed (at least one visible",
+                          "value new); like frames a second, but a frozen table scores 0, not \(first.machine.refreshRate).", ""]
+            }
+            if !laidOut.isEmpty {
+                lines += ["Rows × columns laid out for the window at the end of a run: " + laidOut.joined(separator: " · ") + ".", ""]
+            }
             if notes.contains("trace") {
                 lines += ["⚠︎ The Instruments recording slowed some traced runs well below the measured runs' frames: their system",
                           "frames aren't shown.", ""]
             }
             if notes.contains("meter") {
                 lines += ["⚠︎ The screen meter saw clearly fewer frames than Gingham presented in the same run: at this window size the",
-                          "capture doesn't keep up, so the screen updates column isn't reliable here. Read Gingham's presented frames, the",
+                          "capture doesn't keep up, so the frames with new data column isn't reliable here. Read Gingham's presented frames, the",
                           "updates applied (the most any engine could show), main thread busy and data age instead.", ""]
             }
         }
         let hot = results.compactMap(\.numbers?.thermalState).filter { $0 != "nominal" && $0 != "fair" }
         if !hot.isEmpty { lines += ["⚠︎ \(hot.count) runs reached the thermal state \(Set(hot).sorted().joined(separator: ", ")): compare those with care.", ""] }
-        lines += ["Each value: the median of the runs (lowest–highest). Screen updates/s (table): window frames ScreenCaptureKit delivered",
+        lines += ["Each value: the median of the runs (lowest–highest). Frames with new data/s: window frames ScreenCaptureKit delivered",
                   "whose changed pixels reached the table's body (not the top bar or the header), what the eye sees; \"% changed\": the",
                   "median share of the table's body that changed in one. System frames/s (trace): the window's frames the system showed",
                   "(an Instruments trace of one more run: the process's Core Animation commits that reached the display, plus its GPU",

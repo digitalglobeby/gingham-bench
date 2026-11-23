@@ -11,6 +11,7 @@ import AppKit
 
 nonisolated enum ScenarioID: String, CaseIterable, Sendable {
     case liveTrades = "live-trades"
+    case wideTrades = "wide-trades"
     case orderBook = "order-book"
     case tradeFeed = "trade-feed"
     case binanceTickers = "binance-tickers"
@@ -21,6 +22,7 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
     var title: String {
         switch self {
         case .liveTrades: "Live trades"
+        case .wideTrades: "Wide live trades"
         case .orderBook: "Order book"
         case .tradeFeed: "Trade feed"
         case .binanceTickers: "Binance tickers"
@@ -39,6 +41,7 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
     @MainActor func make(options: Options) -> Scenario {
         switch self {
         case .liveTrades: SyntheticScenario(id: self, model: .trades, sortByAmount: true, rows: options.rows)
+        case .wideTrades: SyntheticScenario(id: self, model: .wideTrades, sortByAmount: true, rows: options.rows)
         case .orderBook: SyntheticScenario(id: self, model: .orders, sortByAmount: false, rows: options.rows)
         case .tradeFeed: SyntheticScenario(id: self, model: .instruments, sortByAmount: false, rows: options.rows)
         case .binanceTickers: BinanceScenario(id: self, mode: .tickers, domain: options.binanceDomain)

@@ -39,7 +39,8 @@ use the command line, which runs each engine in a fresh process with a warm-up a
 It writes a JSON line per run and, next to it, a Markdown table (`bench.md`) with the median,
 lowest and highest of the runs. Other arguments: `--scenario live-trades,order-book` (or `live`
 for all but the sorts), `--engine gingham,nstable-tuned`, `--warmup 3`, `--rows N`,
-`--load-timeout 30`, `--binance-domain binance.us`, `--window 1000x640`, `--gingham-extras`,
+`--load-timeout 30`, `--binance-domain binance.us`, `--window 1000x640` (also larger than the
+screen: `--window 3840x2160`), `--screen LG` (the display to open on), `--gingham-extras`,
 `--swiftui-diff-moves`, `--summarize file.jsonl`, `--check-formats`, `--calibrate-feed trades`,
 and, in window mode, `--show order-book/collection` and `--cycle 7` (switches engines every
 7 seconds, for recording). All of them are described in
@@ -50,7 +51,7 @@ and, in window mode, `--show order-book/collection` and `--cycle 7` (switches en
 run everything:
 
 ```sh
-Scripts/run-all.sh                            # 7 scenarios × 7 engines × 3 runs of 10 s + a screen pass, about 100 minutes
+Scripts/run-all.sh                            # 8 scenarios × 7 engines × 3 runs of 10 s + a screen pass, about 90 minutes
 Scripts/run-all.sh --scenario live-trades     # any of the app's arguments
 ```
 
@@ -66,6 +67,7 @@ spec the project is generated from; the generated project is committed, so Xcode
 | Scenario | Rows | Changes | Order | Data |
 | --- | --- | --- | --- | --- |
 | `live-trades` | 20,000 trades, 8 columns | ~44,800 a second | by amount, descending | generated, fixed seed |
+| `wide-trades` | 20,000 trades, 24 columns | ~44,800 a second | by amount, descending | generated, fixed seed |
 | `order-book` | 200,000 orders, 8 columns | ~243,500 a second (incl. 50,000 inserts and 50,000 removals) | as they come | generated, fixed seed |
 | `trade-feed` | 1,000,000 instruments, 23 columns | ~300,000 a second (incl. 1,000 inserts and 1,000 removals) | as they come | generated, fixed seed |
 | `binance-tickers` | ~3,100 Binance pairs, 14 columns | what the market does (a few thousand a second) | by trades, descending | live, Binance's public streams |
@@ -83,6 +85,12 @@ screen refresh the main thread applies everything that came since the last one (
   second (the original app changed 750 sixty times a second; here 187.5 every 1/240 s, with the
   same generator, seed and steps). A trade changed twice within a tick counts once: about 44,800
   row changes a second.
+- `wide-trades`: the same trades as a trading terminal shows them, with 24 columns about 2,000
+  points wide (venue, account, side, status, price, bid, ask, spread, mid, last size, amount, open,
+  high, low, change, change %, VWAP, volume, notional, trades, time, fee). The same generator, seed
+  and rates as `live-trades` (about 44,800 row changes a second, sorted by amount); a changed trade
+  gets new values in its price-related columns, 1% of them a new status. In the default window
+  only the first columns are in view; at 2040 × 1080 all 24 are.
 - `order-book`: 200,000 resting orders of 500 instruments. Every 2 ms, 0.2% of the rows are
   picked, Zipf-distributed (exponent 1: the first rows the busiest, as in real markets); each
   is partially filled or repriced by 1–3 ticks. 50,000 new orders a second are added at the end
@@ -108,7 +116,7 @@ the 24-hour tickers of every pair (`!ticker_1d@arr`) and every pair's best bid a
 SOL, BNB, XRP and DOGE against USDT (`<pair>@depth@100ms` on a REST snapshot of 5,000 levels a
 side, kept in step as Binance's documentation describes). Sorted by pair and then price, highest
 first, the rows in view are the top of the first pair's asks, 5,000 levels away from the market:
-they hardly ever change, so this scenario shows about 0 screen updates for every engine, and what
+they hardly ever change, so this scenario shows about 0 frames with new data for every engine, and what
 it measures is the cost of keeping 58,000 levels sorted while the books change (main thread busy,
 data age, updates applied). **Numbers vary** with the market, the
 time of day and the network; compare engines within one session. Data doesn't arrive at every
@@ -127,7 +135,10 @@ Finder does), and each run checks that the order shown is Finder's all the way d
 ## Engines
 
 Every engine reads the same store (the rows by column, kept on the main thread), shows the same
-columns with the same widths, the same text for each value (numbers with grouping separators and
+columns with the same widths on the screen (a column's width and 6 points of spacing: NSTableView's
+and the collection view's intercell spacing; Gingham's columns get the spacing in their width,
+SwiftUI's their width less its 17-point spacing, so every engine shows the same columns in the
+same places), the same text for each value (numbers with grouping separators and
 the same digits; `--check-formats` compares the other engines' text with Gingham's), striped rows,
 20-point rows where the engine allows it, and is told about the same changes. Before the table,
 everything is the same code: the generation (or the network and decoding), the batch, the store.
@@ -295,7 +306,9 @@ Frames are counted by a `CADisplayLink` of the window's screen, asked for the sc
 its callbacks run on the main thread, once per screen refresh when the main thread is free to take
 it. Each callback applies the changes that came since the last one (above). Per engine:
 
-- **Screen updates a second (table)**: what the eye sees, measured from outside every engine. The
+- **Frames with new data a second (max 120)**: how many times a second the table's picture actually
+  changed (at least one visible value new): like frames a second, but a frozen table scores 0, not
+  120. What the eye sees, measured from outside every engine. The
   app captures its own window with ScreenCaptureKit (only that window, at up to the display's
   rate, at half its size in points, on a background queue); it gets a frame whenever the window's
   content changed, and a frame counts when the table's body changed: its pixel rows are compared
@@ -303,8 +316,8 @@ it. Each callback applies the changes that came since the last one (above). Per 
   window), leaving out the top bar with its live numbers, the column header and the scroller
   strips. Also the median share of the table's rows that changed in one. The headline number.
   Data that changes off the screen changes no pixels: on `live-trades`, sorted by amount, only
-  about 60% of the frames' changes reach the rows in view, so ~70 screen updates a second is all
-  any engine can show there; on the feeds whose busiest rows are in view, nearly every update
+  about 60% of the frames' changes reach the rows in view, so ~70 frames with new data a second is
+  all any engine can show there; on the feeds whose busiest rows are in view, nearly every update
   shows. The capture itself tops out near 110 frames a second (it saw 110.6 of the 119.4 frames
   Gingham presented on `order-book`).
   It needs the **Screen Recording permission** of the process that captures: the app's when it's
@@ -316,13 +329,13 @@ it. Each callback applies the changes that came since the last one (above). Per 
   51.7 against 57.3, the tuned NSTableView 52 against 56.5); so `run-all.sh`
   measures without it and runs one more round of every scenario and engine with it
   (`--separate-screen-pass`), whose screen numbers fill the column. Each sort run also checks the
-  meter: two seconds after the sorts, with nothing changing, should give about 0 screen updates
+  meter: two seconds after the sorts, with nothing changing, should give about 0 frames with new data
   while the callbacks go on. `GINGHAM_BENCH_VISIBLE_TRUTH=1` adds the data's own answer on
   `live-trades`: the callbacks after which the 30 top rows by amount look different
   (`visibleDataChangesPerSecond`), and whether the engine shows exactly those rows in that order
   one frame later (printed after the run); `=26` counts the top 26 rows instead of 30. Checked
   that way in an earlier session (not in the published results; 26 rows, about those in the
-  meter's region for every engine): Gingham 72.5 screen updates a second against 69.5 data
+  meter's region for every engine): Gingham 72.5 frames with new data a second against 69.5 data
   changes, the tuned NSTableView 58.8 against 59.5, the cell-based one 68.3 against 69.8.
 - **System frames a second (trace)**: the system's own count, from an Instruments trace of one more
   run of each engine on `live-trades` and `order-book` (`--trace-pass`, also through `run-all.sh`;
@@ -344,16 +357,16 @@ it. Each callback applies the changes that came since the last one (above). Per 
   and 118.5 on `order-book`); for the AppKit engines the display frames with new content equal the
   updates applied when every update changes something in view (`order-book`: the tuned NSTableView
   50.5 and 50.5, NSCollectionView 51 and 51), and are fewer when not (`live-trades`: the tuned
-  NSTableView 54.5 of 90.5 updates applied, against 49.5 screen updates). It is an upper bound of
+  NSTableView 54.5 of 90.5 updates applied, against 49.5 frames with new data). It is an upper bound of
   what changes on the screen: a frame with the same pixels counts too (Gingham presents a frame for
-  every batch applied: 119.5 such frames a second on `live-trades` against 73.3 screen updates; the
+  every batch applied: 119.5 such frames a second on `live-trades` against 73.3 with new data; the
   cell-based table 73 against 58.8, its GPU frames 85.8). The screen numbers come from runs without
   a trace.
 - **Updates applied a second**: callbacks that applied new data, the times a second the table was
   given something new to show (at most the screen's refresh rate). Whether each update then
   reached the screen, only Gingham can tell (`GHTableView.framePresented`); its **frames
   presented** a second are shown next to it. No other engine has a way to report that. The window's
-  big number is the screen updates when the meter runs, and these otherwise.
+  big number is the frames with new data when the meter runs, and these otherwise.
 - **Data age**: from the time a change was due in the feed (Binance: its arrival from the network)
   to the start of the callback that applied it, median and 99th percentile over the changes. It
   ends there: that frame's applying, layout, commit and presentation aren't in it. Ticks keep the
@@ -415,7 +428,20 @@ thermal state, build configuration) and the date.
   isn't drawn), and a busy machine lowers every number. The app turns off App Nap while
   measuring, for every engine alike.
 - **The window's size** decides how many cells are in view, the work every view-based engine does
-  per frame: 1000 × 640 points of table by default, the same for all (`--window`).
+  per frame: 1000 × 640 points of table by default, the same for all (`--window`). Each run records
+  the rows and columns the engine laid out for its window (NSTableView's rows and columns in its
+  visible rect, also the one SwiftUI's Table is made of, the collection view's visible items,
+  Gingham's visible rows and columns).
+- **A window larger than the screen**: `--window 3840x2160` on a MacBook (2056 × 1329 points) is a
+  3840 × 2160-point table, larger than the MacBook's screen: what a 4K display at 120 Hz would
+  show. The window keeps that size (AppKit would shrink it to the screen) with its top left at the
+  screen's, and every engine lays out and draws all of it (107 rows by 8 columns of `live-trades`,
+  SwiftUI's taller rows 89, the screen showing about a third). ScreenCaptureKit captures the whole
+  window, the part off the screen too, but at this size the capture is costly (Gingham's 120 updates
+  applied a second fell to 60 with it), so there the numbers to read are Gingham's presented frames,
+  the updates applied, main thread busy and data age; the window server's GPU rate with nothing
+  changing is high at this size (about 85 ms a second), so its GPU column isn't comparable either.
+  A real 4K display at 60 Hz gives the same picture at half the rate.
 - **The data is the bench's**: the shapes and rates come from real feeds (a trading terminal, an
   order book, a market data firehose), but your app's data and columns are yours. The code is
   small enough to change the scenarios.
@@ -436,8 +462,8 @@ raw JSON lines: [default window](results/2026-11-23-1146.md) ([JSON](results/202
 
 ### Live data, the default window (1000 × 640 points of table, 2000 × 1280 pixels)
 
-Screen updates a second (the table's pixels, measured from outside) · main thread busy · data age
-(median, from the change to the frame that applied it).
+Frames with new data a second, max 120 (the table's pixels, measured from outside) · main thread
+busy · data age (median, from the change to the frame that applied it).
 
 | Engine | Live trades: 20,000 rows, ~44,800 changes/s | Order book: 200,000 rows, ~243,500 changes/s | Trade feed: 1,000,000 rows, ~300,000 changes/s |
 | --- | --- | --- | --- |
@@ -450,10 +476,13 @@ Screen updates a second (the table's pixels, measured from outside) · main thre
 | SwiftUI Table, tuned | 4 · 100% · 138 ms | stuck (no frames for 15 s after the window) | stuck (no frames for 15 s after the window) |
 
 On `live-trades` only about 60% of the frames' changes reach the rows in view (the table is sorted
-by amount), so ~70 screen updates a second is all any engine can show there; Gingham and the
+by amount), so ~70 frames with new data a second is all any engine can show there; Gingham and the
 cell-based NSTableView apply every frame's changes (118–119 updates applied a second), the others
 fewer. The tuned NSTableView's screen-meter run was invalid (the window was covered); its traced
-run read 50 screen updates a second.
+run read 50 frames with new data a second.
+
+Frames with new data: how many times a second the table's picture actually changed (at least one
+visible value new); like frames a second, but a frozen table scores 0, not 120.
 
 ### Live data, a large window (2040 × 1080 points of table, 4080 × 2160 pixels)
 
@@ -493,7 +522,7 @@ stays near 8 ms). By pair has about 500 distinct texts, by account nearly a mill
 
 ### Binance (live market: numbers vary)
 
-Tickers (about 3,100 pairs, sorted by trades): screen updates a second · main thread busy · data
+Tickers (about 3,100 pairs, sorted by trades): frames with new data a second · main thread busy · data
 age (from arrival). The order books' rows in view hardly change (see Scenarios), so for them:
 updates applied (Gingham: presented) · main thread busy · data age.
 
@@ -506,6 +535,9 @@ updates applied (Gingham: presented) · main thread busy · data age.
 | NSCollectionView | 44 · 37% · 4 ms | 18 applied · 19% · 4 ms |
 | SwiftUI Table | 25 · 94% · 15 ms | 1 applied · 100% · 828 ms |
 | SwiftUI Table, tuned | 21 · 64% · 8 ms | 5 applied · 91% · 70 ms |
+
+Frames with new data: how many times a second the table's picture actually changed (at least one
+visible value new); like frames a second, but a frozen table scores 0, not 120.
 
 ### iPhone
 

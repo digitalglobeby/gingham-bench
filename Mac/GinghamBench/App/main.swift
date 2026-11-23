@@ -17,6 +17,12 @@ do {
     exit(64)
 }
 
+if let name = options.screenName, !NSScreen.screens.contains(where: { $0.localizedName.localizedCaseInsensitiveContains(name) }) {
+    let names = NSScreen.screens.map { "\($0.localizedName) (\($0.maximumFramesPerSecond) Hz)" }.joined(separator: ", ")
+    FileHandle.standardError.write(Data("Gingham Bench: no display named \"\(name)\" (there are: \(names))\n".utf8))
+    exit(64)
+}
+
 // Before any table shows rows: the bench's key shows every row (without it, 10,000).
 BenchKey.register()
 GinghamEngine.showsExtras = options.ginghamExtras

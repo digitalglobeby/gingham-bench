@@ -31,6 +31,15 @@ nonisolated struct ColumnSpec: Sendable {
 
     var isTrailing: Bool { kind != .text }
     var isNumeric: Bool { kind != .text }
+
+    /// The room between two columns: NSTableView's intercell spacing (and the collection view's).
+    static let spacing: CGFloat = 6
+    /// SwiftUI Table's room between two columns (its NSTableView's intercell spacing).
+    static let swiftUISpacing: CGFloat = 17
+    /// What the column takes on the screen, the same in every engine (so all show the same columns):
+    /// its width and the spacing. Gingham's columns have no spacing (their width is all of it), SwiftUI's
+    /// are its width less SwiftUI's larger spacing.
+    var pitch: CGFloat { width + Self.spacing }
 }
 
 /// A column to sort by.

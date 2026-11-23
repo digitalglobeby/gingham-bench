@@ -47,7 +47,7 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.rowHeight = 20
-        tableView.intercellSpacing = NSSize(width: 6, height: 0)
+        tableView.intercellSpacing = NSSize(width: ColumnSpec.spacing, height: 0)
         tableView.dataSource = self
         tableView.delegate = self
         scrollView.documentView = tableView
@@ -186,6 +186,10 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
 
     var isSorting: Bool { false }
     var displayedRowCount: Int { tableView.numberOfRows }
+
+    var rendered: (rows: Int, columns: Int)? {
+        (tableView.rows(in: tableView.visibleRect).length, tableView.columnIndexes(in: tableView.visibleRect).count)
+    }
 
     func shownTexts() -> [(display: Int, column: Int, text: String)] {
         var texts: [(display: Int, column: Int, text: String)] = []

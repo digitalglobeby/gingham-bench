@@ -56,7 +56,7 @@ final class InteractiveController: NSObject {
         meter.onFrame = { [weak self] now in self?.frame(now) }
         meter.start(on: ui.container)
         if options.screenMeter {
-            // What the eye sees: the big number is the table's screen updates when it can be measured.
+            // What the eye sees: the big number is the table's frames with new data when it can be measured.
             let screenMeter = ScreenMeter(data: meter.data)
             self.screenMeter = screenMeter
             let (window, body, rate) = (ui.window, ui.tableBody, meter.refreshRate)

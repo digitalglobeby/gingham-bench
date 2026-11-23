@@ -2,8 +2,8 @@
 # Builds the Mac app (Release) and runs every scenario with every engine, each run in a process
 # of its own, writing results/<date>.jsonl (a JSON line per run) and results/<date>.md (the table).
 #
-#   Scripts/run-all.sh                          everything: 7 scenarios × 7 engines × 3 runs of 10 s, then a
-#                                               round of all with the screen meter (about 100 minutes: runs
+#   Scripts/run-all.sh                          everything: 8 scenarios × 7 engines × 3 runs of 10 s, then a
+#                                               round of all with the screen meter (about 90 minutes: runs
 #                                               wait for Binance's request limit, SwiftUI's Table runs out its
 #                                               timeouts, and sorts on the main thread take a while)
 #   Scripts/run-all.sh --scenario live-trades   any of the app's arguments (see Mac/GinghamBench/App/Options.swift)
@@ -49,6 +49,6 @@ Scripts/check-isolation.sh "$APP"
 # which the screen locked or the window was covered are reported as invalid).
 caffeinate -dims -w $$ &
 # The measured runs go without the screen meter (its capture can cost a saturated engine a few
-# percent), then one round of every scenario and engine runs with it for the screen updates.
+# percent), then one round of every scenario and engine runs with it for the frames with new data.
 # The screen meter needs the Screen Recording permission of the terminal app this runs in.
 "$APP" --scenario all --engine all --seconds 10 --runs 3 --separate-screen-pass --output "results/$STAMP.jsonl" "$@"

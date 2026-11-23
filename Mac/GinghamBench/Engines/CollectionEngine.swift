@@ -88,8 +88,8 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
                 cell.font = Self.font
                 cell.lineBreakMode = .byTruncatingTail
                 cell.alignment = spec.isTrailing ? .right : .left
-                cell.frame = NSRect(x: x + 3, y: 2, width: spec.width - 6, height: 16)
-                x += spec.width + 6
+                cell.frame = NSRect(x: x + 3, y: 2, width: spec.pitch - 6, height: 16)
+                x += spec.pitch
                 view.addSubview(cell)
                 return cell
             }
@@ -134,7 +134,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
 
     func load(_ source: BenchSource, sort: [SortSpec]) {
         rows.load(source, sort: sort)
-        layout.rowWidth = source.columns.reduce(0) { $0 + $1.width + 6 }
+        layout.rowWidth = source.columns.reduce(0) { $0 + $1.pitch }
         header.subviews.forEach { $0.removeFromSuperview() }
         var x: CGFloat = 0
         for spec in source.columns {
@@ -142,8 +142,8 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
             label.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium)
             label.textColor = .secondaryLabelColor
             label.alignment = spec.isTrailing ? .right : .left
-            label.frame = NSRect(x: x + 3, y: 4, width: spec.width - 6, height: 16)
-            x += spec.width + 6
+            label.frame = NSRect(x: x + 3, y: 4, width: spec.pitch - 6, height: 16)
+            x += spec.pitch
             header.addSubview(label)
         }
         collectionView.reloadData()
@@ -201,6 +201,14 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     var isSorting: Bool { rows.isSorting }
     var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
+
+    /// The items realized (NSCollectionView makes items for what its visible rect shows) and the
+    /// labels of one: every column's.
+    var rendered: (rows: Int, columns: Int)? {
+        let items = collectionView.indexPathsForVisibleItems()
+        let labels = items.first.flatMap { (collectionView.item(at: $0) as? Item)?.cells.count } ?? 0
+        return (items.count, labels)
+    }
 
     func shownTexts() -> [(display: Int, column: Int, text: String)] {
         var texts: [(display: Int, column: Int, text: String)] = []

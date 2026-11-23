@@ -306,6 +306,11 @@ final class ChildRun {
         result.windowStartEpoch = window.start + epochOffset
         result.windowEndEpoch = window.end + epochOffset
         result.pid = ProcessInfo.processInfo.processIdentifier
+        if let rendered = engine.rendered { (result.renderedRows, result.renderedColumns) = (rendered.rows, rendered.columns) }
+        if let screen = ui.window.screen {
+            let shown = ui.window.frame.intersection(screen.frame)
+            if shown.size != ui.window.frame.size { result.onScreen = "\(Int(shown.width))x\(Int(shown.height))" }
+        }
         let screenRunning = screenMeter?.state == "running"
         result.numbers = meter.data.summary(from: window.start, to: window.end, baseline: baseline, screen: screenRunning)
         result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
@@ -705,11 +710,13 @@ enum Orchestrator {
                 .joined(separator: ", ") + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")
         }
         guard let numbers = result.numbers else { return result.status }
-        let screen = numbers.screenUpdatesPerSecond.map { String(format: "%.0f screen updates/s, ", $0) } ?? "no screen meter (\(result.screenMeter ?? "?")), "
+        let screen = numbers.screenUpdatesPerSecond.map { String(format: "%.0f frames with new data/s, ", $0) } ?? "no screen meter (\(result.screenMeter ?? "?")), "
         return screen + String(format: "%.0f updates applied/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f more than idle)",
                       numbers.updatesAppliedPerSecond, numbers.dataAgeP50Ms ?? .nan, numbers.dataAgeP99Ms ?? .nan, numbers.busyShare * 100,
                       numbers.longestStallMs, numbers.callbacksPerSecond, numbers.changesPerSecond, numbers.cpuPercent ?? 0, numbers.gpuMsPerSecond ?? 0,
                       numbers.windowServerGPUMsPerSecond ?? 0)
             + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")
+            + (result.renderedRows.map { ", \($0) rows × \(result.renderedColumns ?? 0) columns laid out" } ?? "")
+            + (result.onScreen.map { " (\($0) points of the window on the screen)" } ?? "")
     }
 }

@@ -64,11 +64,11 @@ final class Bar: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    /// `screen`: the table's screen updates a second (nil without the screen meter: the big number
-    /// is then the updates applied).
+    /// `screen`: the table's frames with new data a second, the frames whose picture of the table
+    /// changed (nil without the screen meter: the big number is then the updates applied).
     func update(updates applied: Int, busy share: Double, callbacks: Int, age: Double?, screen: Int?, refreshRate: Int) {
         let count = screen ?? applied
-        frames.stringValue = screen != nil ? "\(count) screen updates/s" : "\(count) updates applied/s"
+        frames.stringValue = screen != nil ? "\(count) frames with new data/s" : "\(count) updates applied/s"
         busy.stringValue = "main thread \(Int((share * 100).rounded()))% busy"
         small.stringValue = (screen != nil ? "\(applied) updates applied/s · " : "")
             + (age.map { "data age \(Int(($0 * 1000).rounded())) ms · " } ?? "") + "\(callbacks) callbacks/s"
@@ -84,13 +84,19 @@ final class Bar: NSView {
     }
 }
 
+/// A window AppKit doesn't fit onto the screen: `--window 3840x2160` on a smaller screen keeps its
+/// size (the table lays out and draws all of it; the screen shows the top left).
+final class UnconstrainedWindow: NSWindow {
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
+}
+
 final class BenchWindow {
     let window: NSWindow
     let bar: Bar
     let container = NSView()
 
     init(size: NSSize, interactive: Bool) {
-        window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height + 80)),
+        window = UnconstrainedWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height + 80)),
                           styleMask: interactive ? [.titled, .closable, .miniaturizable, .resizable] : [.titled],
                           backing: .buffered, defer: false)
         window.title = "Gingham Bench"
@@ -113,10 +119,17 @@ final class BenchWindow {
         ])
         window.contentView = content
         // On the display with the most refreshes a second (a MacBook's 120 Hz one when 60 Hz
-        // displays are attached), in front of other windows: a covered window isn't drawn.
-        if let screen = NSScreen.screens.max(by: { $0.maximumFramesPerSecond < $1.maximumFramesPerSecond }) {
+        // displays are attached) or the one `--screen` names, in front of other windows: a covered
+        // window isn't drawn.
+        let named = options.screenName.flatMap { name in NSScreen.screens.first { $0.localizedName.localizedCaseInsensitiveContains(name) } }
+        if let screen = named ?? NSScreen.screens.max(by: { $0.maximumFramesPerSecond < $1.maximumFramesPerSecond }) {
             let area = screen.visibleFrame
-            window.setFrameOrigin(NSPoint(x: area.midX - window.frame.width / 2, y: area.midY - window.frame.height / 2))
+            if window.frame.width > area.width || window.frame.height > area.height {
+                // Larger than the screen: its top left at the screen's, so the table's top left shows.
+                window.setFrameTopLeftPoint(NSPoint(x: area.minX, y: area.maxY))
+            } else {
+                window.setFrameOrigin(NSPoint(x: area.midX - window.frame.width / 2, y: area.midY - window.frame.height / 2))
+            }
         }
         window.level = .floating
         // Also over an app in full screen (in its own Space a new window would open behind it).
