@@ -20,11 +20,27 @@ do {
 // Before any table shows rows: the bench's key shows every row (without it, 10,000).
 BenchKey.register()
 GinghamEngine.showsExtras = options.ginghamExtras
+SwiftUITunedEngine.diffsMoves = options.swiftUIDiffsMoves
 
 if options.checkFormats {
     let differences = BenchFormat.differencesFromGingham()
     print(differences.isEmpty ? "Number text: the same as Gingham's." : differences.joined(separator: "\n"))
     exit(differences.isEmpty ? 0 : 1)
+}
+
+if let name = options.calibrateFeed {
+    guard let model = FeedModel(rawValue: name) else { print("no feed model \(name)"); exit(64) }
+    // Ticks without waiting for the clock: row changes per second of the feed's own time.
+    let generator = FeedGenerator(model: model)
+    var batch = FeedBatch(), changes = 0
+    let seconds = 3.0
+    for _ in 0..<Int(seconds / generator.tickInterval) {
+        generator.tick(into: &batch)
+        changes += batch.count
+        batch.removeAll()
+    }
+    print("\(model.rawValue): \(Int(Double(changes) / seconds)) row changes a second (ticks of \(generator.tickInterval * 1000) ms)")
+    exit(0)
 }
 
 if let path = options.summarize {

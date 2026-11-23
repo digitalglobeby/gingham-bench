@@ -18,15 +18,48 @@
 
 import Foundation
 
+/// A sort column's values, read from the store's arrays (on the main thread) for a sort that
+/// runs without touching the store.
+nonisolated enum SortColumn: Sendable {
+    case numbers([Double], ascending: Bool)
+    case texts([String], ascending: Bool)
+}
+
 enum AppSort {
     /// The rows in `sort`'s order (none: the store's), sorted from scratch.
     static func order(of source: BenchSource, by sort: [SortSpec]) -> [Int] {
-        var order = Array(0..<source.rowCount)
-        guard !sort.isEmpty else { return order }
-        // One numeric column (the live scenarios): its array read directly, as an app's
-        // comparator reads a property of its model.
-        if sort.count == 1, source.columns[sort[0].column].isNumeric, let keys = (source as? ColumnArrays)?.numberArray(sort[0].column) {
-            let ascending = sort[0].ascending
+        guard !sort.isEmpty else { return Array(0..<source.rowCount) }
+        return AppSortWork.order(count: source.rowCount, by: columns(of: source, sort: sort))
+    }
+
+    static func columns(of source: BenchSource, sort: [SortSpec]) -> [SortColumn] {
+        // (Every store keeps its columns as arrays: `ColumnArrays`.)
+        let arrays = source as? ColumnArrays
+        var columns: [SortColumn] = []
+        for spec in sort {
+            if source.columns[spec.column].kind == .text {
+                columns.append(.texts(arrays?.textArray(spec.column) ?? [], ascending: spec.ascending))
+            } else {
+                columns.append(.numbers(arrays?.numberArray(spec.column) ?? [], ascending: spec.ascending))
+            }
+        }
+        return columns
+    }
+}
+
+/// The sorting itself, outside the main actor: a comparator made in a main-actor function
+/// checks that it runs on the main thread on every call (Swift 6's dynamic isolation checks,
+/// `swift_task_isCurrentExecutor`), which costs more than the comparison. Hot closures and loops
+/// of the app-side engines live in `nonisolated` helpers like this one; `Scripts/check-isolation.sh`
+/// checks the Release binary for it.
+nonisolated enum AppSortWork {
+    /// The rows sorted by the columns, as a typical app's comparator does: numbers by value
+    /// (empty first), text in Finder's order (`localizedStandardCompare`).
+    static func order(count: Int, by columns: [SortColumn]) -> [Int] {
+        var order = Array(0..<count)
+        if columns.count == 1, case .numbers(let keys, let ascending) = columns[0] {
+            // One numeric column (the live scenarios): its array read directly, as an app's
+            // comparator reads a property of its model.
             order.sort { a, b in
                 let x = keys[a], y = keys[b]
                 if x.isNaN || y.isNaN { return ascending ? (x.isNaN && !y.isNaN) : (y.isNaN && !x.isNaN) }
@@ -34,16 +67,35 @@ enum AppSort {
             }
             return order
         }
-        if sort.count == 1, source.columns[sort[0].column].kind == .text, let texts = (source as? ColumnArrays)?.textArray(sort[0].column) {
-            let ascending = sort[0].ascending
+        if columns.count == 1, case .texts(let texts, let ascending) = columns[0] {
             order.sort { a, b in
                 let result = texts[a].localizedStandardCompare(texts[b])
                 return ascending ? result == .orderedAscending : result == .orderedDescending
             }
             return order
         }
-        order.sort { RowComparison.compare(source, $0, $1, by: sort) == .orderedAscending }
+        order.sort { a, b in compare(a, b, columns) == .orderedAscending }
         return order
+    }
+
+    static func compare(_ a: Int, _ b: Int, _ columns: [SortColumn]) -> ComparisonResult {
+        for column in columns {
+            var result: ComparisonResult
+            var ascending = true
+            switch column {
+            case .texts(let texts, let up):
+                result = texts[a].localizedStandardCompare(texts[b])
+                ascending = up
+            case .numbers(let values, let up):
+                let x = values[a], y = values[b]
+                result = x.isNaN ? (y.isNaN ? .orderedSame : .orderedAscending) : y.isNaN ? .orderedDescending
+                    : x < y ? .orderedAscending : x > y ? .orderedDescending : .orderedSame
+                ascending = up
+            }
+            if !ascending { result = ComparisonResult(rawValue: -result.rawValue)! }
+            if result != .orderedSame { return result }
+        }
+        return .orderedSame
     }
 }
 
@@ -131,6 +183,24 @@ final class LiveOrder {
         let texts = columns.indices.map { column in sort.contains { $0.column == column } ? arrays?.textArray(column) : nil }
         return LiveOrder(sort: sort, columns: columns, numbers: numbers, texts: texts,
                          identity: source.isStatic ? [] : (0..<source.rowCount).map(source.identifier), count: source.rowCount)
+    }
+
+    /// The order without the moving rows (and removed places), with the moving rows merged in.
+    nonisolated private static func merge(order: [Int], moving: [Int], isPending: [Bool], keys: [[Double]], identity: [Int]) -> [Int] {
+        var moving = moving
+        moving.sort { less($0, $1, keys: keys, identity: identity) }
+        var merged: [Int] = []
+        merged.reserveCapacity(order.count + moving.count)
+        var next = 0
+        for row in order where row >= 0 && !isPending[row] {
+            while next < moving.count, less(moving[next], row, keys: keys, identity: identity) {
+                merged.append(moving[next])
+                next += 1
+            }
+            merged.append(row)
+        }
+        merged.append(contentsOf: moving[next...])
+        return merged
     }
 
     nonisolated private static func less(_ a: Int, _ b: Int, keys: [[Double]], identity: [Int]) -> Bool {
@@ -230,7 +300,8 @@ final class LiveOrder {
 
     /// These rows' values changed in `columns`: re-placed if a sort column is among them.
     func rowsChanged(_ rows: [Int], columns changed: IndexSet, source: BenchSource) {
-        let specs = sort.indices.filter { changed.contains(sort[$0].column) }
+        var specs: [Int] = []
+        for index in sort.indices where changed.contains(sort[index].column) { specs.append(index) }
         guard !specs.isEmpty else { return }
         for row in rows where row < position.count {
             var moved = false
@@ -257,19 +328,7 @@ final class LiveOrder {
             moving.append(row)
         }
         for row in moving { isPending[row] = true }
-        let keys = keys, ids = identity
-        moving.sort { Self.less($0, $1, keys: keys, identity: ids) }
-        var merged: [Int] = []
-        merged.reserveCapacity(position.count)
-        var next = 0
-        for row in order where row >= 0 && !isPending[row] {
-            while next < moving.count, Self.less(moving[next], row, keys: keys, identity: ids) {
-                merged.append(moving[next])
-                next += 1
-            }
-            merged.append(row)
-        }
-        merged.append(contentsOf: moving[next...])
+        let merged = Self.merge(order: order, moving: moving, isPending: isPending, keys: keys, identity: identity)
         order = merged
         for (display, row) in order.enumerated() { position[row] = display }
         for row in moving { isPending[row] = false }

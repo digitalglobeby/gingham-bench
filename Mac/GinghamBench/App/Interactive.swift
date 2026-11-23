@@ -60,7 +60,7 @@ final class InteractiveController: NSObject {
             MainActor.assumeIsolated { self?.meter.data.trim(before: CACurrentMediaTime() - 60) }
         }
         // For checking the layout without a screen recording permission: the window's views
-        // drawn into a PNG (Metal-drawn content, Gingham's rows, stays empty) and quit.
+        // drawn into a PNG (GPU-drawn content, Gingham's rows, stays empty) and quit.
         if let path = ProcessInfo.processInfo.environment["GINGHAM_BENCH_SNAPSHOT"] {
             Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -105,7 +105,7 @@ final class InteractiveController: NSObject {
         ui.bar.engine.stringValue = kind.title
         ui.bar.subtitle.stringValue = "Preparing the rows…"
         ui.bar.clearNumbers()
-        sortButton.isHidden = scenarioID != .sortText
+        sortButton.isHidden = !scenarioID.isSort
         preparing += 1
         let ticket = preparing
         let scenario = scenarioID.make(options: options)
@@ -135,6 +135,7 @@ final class InteractiveController: NSObject {
         let engine = kind.make()
         engine.framePresented = { [meter] in meter.presented() }
         ui.show(engine.view)
+        scenario.attach(engine)
         engine.load(scenario.source, sort: scenario.sort)
         self.engine = engine
         sortedAscending = false
@@ -149,7 +150,7 @@ final class InteractiveController: NSObject {
 
     private func frame(_ now: CFTimeInterval) {
         if let engine, let scenario {
-            meter.data.changes(scenario.applyPending(to: engine), at: now)
+            meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
             if let start = sortStart, !engine.isSorting {
                 sortStart = nil
                 ui.bar.subtitle.stringValue = "\(scenario.subtitle) · \(sortedAscending ? "sorted" : "unsorted") in \(String(format: "%.2f", now - start)) s"
@@ -157,8 +158,10 @@ final class InteractiveController: NSObject {
         }
         if now - lastBarUpdate >= 0.25 {
             lastBarUpdate = now
-            let (frames, busy, presented) = meter.data.lastSecond(now: now)
-            if engine != nil { ui.bar.update(frames: frames, busy: busy, presented: presented, refreshRate: meter.refreshRate) }
+            let second = meter.data.lastSecond(now: now)
+            if engine != nil {
+                ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age, refreshRate: meter.refreshRate)
+            }
         }
     }
 }

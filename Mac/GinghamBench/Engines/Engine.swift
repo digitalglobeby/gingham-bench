@@ -19,16 +19,20 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
     case gingham
     case nstable
     case nstableTuned = "nstable-tuned"
+    case nstableCells = "nstable-cells"
     case collection
     case swiftui
+    case swiftuiTuned = "swiftui-tuned"
 
     var title: String {
         switch self {
         case .gingham: "Gingham"
         case .nstable: "NSTableView"
         case .nstableTuned: "NSTableView, tuned"
+        case .nstableCells: "NSTableView, cell-based"
         case .collection: "NSCollectionView"
         case .swiftui: "SwiftUI Table"
+        case .swiftuiTuned: "SwiftUI Table, tuned"
         }
     }
 
@@ -38,8 +42,10 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .gingham: "sortsRows, targeted reloads"
         case .nstable: "app re-sorts after each batch, reloads rows in view"
         case .nstableTuned: "incremental sort, in-place cell updates of rows in view"
+        case .nstableCells: "NSCell-based, changed cells redrawn, incremental sort"
         case .collection: "custom row layout, incremental sort, in-place item updates"
         case .swiftui: "@Observable rows, sortOrder binding"
+        case .swiftuiTuned: "@Observable row objects, static columns, incremental sort"
         }
     }
 
@@ -48,8 +54,10 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .gingham: GinghamEngine()
         case .nstable: NSTableEngine()
         case .nstableTuned: NSTableTunedEngine()
+        case .nstableCells: NSTableCellsEngine()
         case .collection: CollectionEngine()
         case .swiftui: SwiftUIEngine()
+        case .swiftuiTuned: SwiftUITunedEngine()
         }
     }
 }
@@ -76,8 +84,9 @@ protocol Engine: AnyObject {
     var isSorting: Bool { get }
     /// Whether the table has its rows (SwiftUI's Table may take long, or forever, to load many).
     var showsRows: Bool { get }
-    /// The store's row shown at a place, for checking an order.
+    /// The store's row shown at a place, and the rows shown, for checking an order.
     func sourceRow(atDisplayIndex index: Int) -> Int?
+    var displayedRowCount: Int { get }
     /// Called when a frame drawn by the engine is on the screen, if the engine can tell (Gingham).
     var framePresented: (() -> Void)? { get set }
 }

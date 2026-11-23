@@ -69,6 +69,7 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
     func sort(by sort: [SortSpec]) { table.sortDescriptors = descriptors(sort) }
     var isSorting: Bool { table.isSortingRows }
     func sourceRow(atDisplayIndex index: Int) -> Int? { table.row(atDisplayIndex: index) }
+    var displayedRowCount: Int { table.numberOfDisplayedRows }
 
     var framePresented: (() -> Void)? {
         get { presented }

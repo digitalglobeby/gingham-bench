@@ -45,7 +45,8 @@ final class TunedRows {
     }
 
     func sourceRow(atDisplay index: Int) -> Int {
-        liveOrder.map { index < $0.order.count ? $0.order[index] : -1 } ?? index
+        guard let liveOrder else { return index }
+        return index < liveOrder.order.count ? liveOrder.order[index] : -1
     }
 
     // MARK: A batch
@@ -84,34 +85,52 @@ final class TunedRows {
         liveOrder?.rowsChanged(rows, columns: columns, source: source)
     }
 
-    /// At the end of the batch: whether the number of rows changed, and calls `refresh` for
-    /// each place in view to update (display row, store row, columns).
-    func end(visible: () -> Range<Int>, refresh: (Int, Int, IndexSet) -> Void) -> (countChanged: Bool, oldCount: Int) {
-        let countChanged = count != countAtBegin
-        let all = allColumns
+    /// A place in view to update: its display row, the store row it shows, and whether every
+    /// column changed (else only `Ended.columns`).
+    struct Refresh {
+        let display: Int
+        let row: Int
+        let allColumns: Bool
+    }
+
+    struct Ended {
+        var countChanged: Bool
+        var refreshes: [Refresh]
+        /// The columns that changed in the rows that kept their place.
+        var columns: IndexSet
+    }
+
+    /// At the end of the batch: whether the number of rows changed, and the places in view to
+    /// update. (Loops, no closures: see `AppSortWork`.)
+    func end(visible: Range<Int>) -> Ended {
+        var ended = Ended(countChanged: count != countAtBegin, refreshes: [], columns: changedColumns)
         if let liveOrder {
             liveOrder.placePending()
-            let range = visible().clamped(to: 0..<liveOrder.order.count)
+            let order = liveOrder.order
+            let range = visible.clamped(to: 0..<order.count)
             for display in range {
-                let row = liveOrder.order[display]
+                let row = order[display]
                 let before = display - visibleRangeBefore.lowerBound
                 if display >= visibleRangeBefore.lowerBound, before < visibleBefore.count, visibleBefore[before] == row,
                    !replaced.contains(row) {
-                    if changedMark[row] { refresh(display, row, changedColumns) }
+                    if changedMark[row] { ended.refreshes.append(Refresh(display: display, row: row, allColumns: false)) }
                 } else {
-                    refresh(display, row, all)
+                    ended.refreshes.append(Refresh(display: display, row: row, allColumns: true))
                 }
             }
         } else {
-            let range = visible()
-            for row in changed where row < count && range.contains(row) && !replaced.contains(row) { refresh(row, row, changedColumns) }
-            for row in replaced where row < count && range.contains(row) { refresh(row, row, all) }
+            for row in changed where row < count && visible.contains(row) && !replaced.contains(row) {
+                ended.refreshes.append(Refresh(display: row, row: row, allColumns: false))
+            }
+            for row in replaced where row < count && visible.contains(row) {
+                ended.refreshes.append(Refresh(display: row, row: row, allColumns: true))
+            }
         }
         for row in changed where row < changedMark.count { changedMark[row] = false }
         changed.removeAll(keepingCapacity: true)
         replaced.removeAll(keepingCapacity: true)
         changedColumns = []
-        return (countChanged, countAtBegin)
+        return ended
     }
 
     // MARK: Sorting

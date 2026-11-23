@@ -28,12 +28,14 @@
 		9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04E10F329FCC5A688F002172 /* NSTableEngine.swift */; };
 		A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */; };
 		A640D0E45785091AE55AB344 /* BenchKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B32872C90D5173DEADBBD10 /* BenchKey.swift */; };
+		B0BCA84C18CF9144672C3C95 /* SwiftUITunedEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C55F6B6DA9FC9AD0409FD08 /* SwiftUITunedEngine.swift */; };
 		B12D94D0E67AF79C7673785E /* Interactive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C1544288EA66E022C7CB883 /* Interactive.swift */; };
 		BE3F08E2141A431C869C4238 /* Options.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8555400C620E2A12EB75DFA /* Options.swift */; };
 		BFA7817CD20D7BB2ADC7D22B /* Meter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B3E5852E80F3F093036088 /* Meter.swift */; };
 		BFF510ECCF6BDA667D8B6D89 /* FeedGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E141FD4035276654B386B9 /* FeedGenerator.swift */; };
 		CFB0AD089EA4210FE01BB9CA /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63450A434BD2037A5F78353B /* main.swift */; };
 		DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA70C66D0905A84B2844489E /* Runner.swift */; };
+		E2D1AD5A83613A47CEAE20A5 /* NSTableCellsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,6 +49,7 @@
 		4BE3CFCDD383666C7B0A7F28 /* AppSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSort.swift; sourceTree = "<group>"; };
 		545C86ECB84A2C2019F59DA4 /* SyntheticScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticScenario.swift; sourceTree = "<group>"; };
 		598A062B7F93CBD847E38015 /* Report.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Report.swift; sourceTree = "<group>"; };
+		5C55F6B6DA9FC9AD0409FD08 /* SwiftUITunedEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUITunedEngine.swift; sourceTree = "<group>"; };
 		60FC677B5F0F4EFC278AF195 /* BinanceMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceMessages.swift; sourceTree = "<group>"; };
 		6235676D51BB0A263D0F5899 /* SwiftUIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUIEngine.swift; sourceTree = "<group>"; };
 		63450A434BD2037A5F78353B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -55,6 +58,7 @@
 		7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSTableTunedEngine.swift; sourceTree = "<group>"; };
 		801125CD701B8E3382E54284 /* JSONReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONReader.swift; sourceTree = "<group>"; };
 		9C1544288EA66E022C7CB883 /* Interactive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactive.swift; sourceTree = "<group>"; };
+		9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSTableCellsEngine.swift; sourceTree = "<group>"; };
 		AA70C66D0905A84B2844489E /* Runner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner.swift; sourceTree = "<group>"; };
 		B1D777639EF60CFF501CE404 /* BinanceScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinanceScenario.swift; sourceTree = "<group>"; };
 		B8555400C620E2A12EB75DFA /* Options.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Options.swift; sourceTree = "<group>"; };
@@ -137,9 +141,11 @@
 				EC00F04B7E7D1D45DA1B08D0 /* CollectionEngine.swift */,
 				27E1F75EC4E7AF40DACE101E /* Engine.swift */,
 				DA2026341A9B89FB5FE16CF1 /* GinghamEngine.swift */,
+				9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */,
 				04E10F329FCC5A688F002172 /* NSTableEngine.swift */,
 				7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */,
 				6235676D51BB0A263D0F5899 /* SwiftUIEngine.swift */,
+				5C55F6B6DA9FC9AD0409FD08 /* SwiftUITunedEngine.swift */,
 				C8A7551C8A49C6052A421EE4 /* TunedRows.swift */,
 			);
 			path = Engines;
@@ -262,6 +268,7 @@
 				B12D94D0E67AF79C7673785E /* Interactive.swift in Sources */,
 				122208FCE95D62D039DE2EC9 /* JSONReader.swift in Sources */,
 				BFA7817CD20D7BB2ADC7D22B /* Meter.swift in Sources */,
+				E2D1AD5A83613A47CEAE20A5 /* NSTableCellsEngine.swift in Sources */,
 				9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */,
 				A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */,
 				BE3F08E2141A431C869C4238 /* Options.swift in Sources */,
@@ -270,6 +277,7 @@
 				4A6C26AA4EAA8F10587D4B1E /* Scenario.swift in Sources */,
 				8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */,
 				50C7F18539AF31AA97AE9C61 /* SwiftUIEngine.swift in Sources */,
+				B0BCA84C18CF9144672C3C95 /* SwiftUITunedEngine.swift in Sources */,
 				48CF500A73F1E10AB7197AD2 /* SyntheticScenario.swift in Sources */,
 				1A7CAACCCC05D97178241831 /* TunedRows.swift in Sources */,
 				CFB0AD089EA4210FE01BB9CA /* main.swift in Sources */,

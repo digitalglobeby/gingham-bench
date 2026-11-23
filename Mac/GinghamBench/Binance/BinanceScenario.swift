@@ -136,7 +136,10 @@ final class BinanceStore: BenchSource, ColumnArrays {
     /// Tells the engine which cells changed (at the end of a batch, and before rows move).
     func flushUpdates() {
         for group in pending.indices where !pending[group].rows.isEmpty {
-            engine?.reloadRows(pending[group].rows.filter { $0 < rowCount }, columns: pending[group].columns)
+            var rows: [Int] = []
+            rows.reserveCapacity(pending[group].rows.count)
+            for row in pending[group].rows where row < rowCount { rows.append(row) }
+            engine?.reloadRows(rows, columns: pending[group].columns)
             for row in pending[group].rows where row < pending[group].marks.count { pending[group].marks[row] = false }
             pending[group].rows.removeAll(keepingCapacity: true)
             pending[group].columns = []
@@ -200,8 +203,10 @@ final class BinanceStore: BenchSource, ColumnArrays {
 
     /// Every level of a pair goes (its book is loaded again).
     func removeLevels(of symbol: String) {
-        let rows = rowOfLevel.filter { $0.key.symbol == symbol }.map(\.value).sorted(by: >)
-        for row in rows { removeLevel(at: row) }
+        var rows: [Int] = []
+        for (key, row) in rowOfLevel where key.symbol == symbol { rows.append(row) }
+        rows.sort()
+        for row in rows.reversed() { removeLevel(at: row) }
     }
 
     /// The last row takes the level's place (no shift), told to the engine so; the changes
@@ -359,7 +364,7 @@ final class BinanceScenario: Scenario {
     private func pump(for seconds: Double) async throws {
         let end = Date().addingTimeInterval(seconds)
         while Date() < end {
-            _ = applyPending(to: nil)
+            _ = applyPending(to: nil, at: CACurrentMediaTime())
             try await Task.sleep(for: .milliseconds(16))
         }
     }
@@ -404,20 +409,40 @@ final class BinanceScenario: Scenario {
         store.apply(levels: change.asks, isBid: false, symbol: change.symbol, time: change.eventTime)
     }
 
+    func attach(_ engine: Engine) { store.engine = engine }
+
     func stop() {
         isStopped = true
         for connection in connections { connection.close() }
         connections = []
     }
 
-    func applyPending(to engine: Engine?) -> Int {
+    func applyPending(to engine: Engine?, at time: CFTimeInterval) -> Applied {
         var messages: [BinanceMessage] = []
-        for connection in connections { messages += connection.take().messages }
-        guard !messages.isEmpty else { return 0 }
-        store.engine = engine
+        var receivedAt: [Double] = []
+        for connection in connections {
+            let received = connection.take()
+            messages += received.messages
+            receivedAt += received.receivedAt
+            // (`.closed` comes without a frame, so without a time.)
+            if received.receivedAt.count < received.messages.count {
+                receivedAt += repeatElement(.nan, count: received.messages.count - received.receivedAt.count)
+            }
+        }
+        guard !messages.isEmpty else { return Applied() }
+        if let engine { store.engine = engine }
         engine?.beginUpdates()
-        var changes = 0
-        for message in messages {
+        var applied = Applied()
+        // The data's age: from its frame coming off the network (the time on both sides is the
+        // wall clock's, µs) to this screen frame.
+        let now = Date().timeIntervalSince1970 * 1_000_000
+        for (message, received) in zip(messages, receivedAt) {
+            let before = applied.changes
+            defer {
+                if applied.changes > before, !received.isNaN { applied.ages.append(((now - received) / 1_000_000, applied.changes - before)) }
+            }
+            var changes = 0
+            defer { applied.changes += changes }
             switch message {
             case .tickers(let tickers):
                 for ticker in tickers { store.apply(ticker) }
@@ -449,6 +474,6 @@ final class BinanceScenario: Scenario {
         }
         store.flushUpdates()
         engine?.endUpdates()
-        return changes
+        return applied
     }
 }

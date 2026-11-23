@@ -3,9 +3,9 @@
 //  Gingham Bench
 //
 //  A static table of 1,000,000 trades, sorted by a text column as a click on its header would
-//  sort it: by "Pair" (about 500 distinct pairs, the busiest far more frequent, as in real
-//  trades; the earlier measurement sorted 1,000,000 Binance trades by pair) or by "Account"
-//  (`--sort-column account`: nearly every row a different name with a number, so the
+//  sort it: by "Pair" (`sort-text`: about 500 distinct pairs, the busiest far more frequent, as
+//  in real trades; the earlier measurement sorted 1,000,000 Binance trades by pair) or by
+//  "Account" (`sort-text-account`: nearly every row a different name with a number, so the
 //  numeric-aware Finder order matters). Generated from a fixed seed.
 //
 //  Measured by the runner (`SortRun`): three times from the unsorted order, the time from the
@@ -84,7 +84,7 @@ final class SortStore: BenchSource, ColumnArrays {
 }
 
 final class SortScenario: Scenario {
-    let id = ScenarioID.sortText
+    let id: ScenarioID
     private let store = SortStore()
     private let rows: Int
     /// The column sorted by (1: pair, 7: account).
@@ -92,7 +92,8 @@ final class SortScenario: Scenario {
     var source: BenchSource { store }
     var sort: [SortSpec] { [] }
 
-    init(rows: Int, column: String) {
+    init(id: ScenarioID, rows: Int, column: String) {
+        self.id = id
         self.rows = rows
         sortColumn = column == "account" ? 7 : 1
     }

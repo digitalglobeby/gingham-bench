@@ -174,15 +174,17 @@ final class SyntheticScenario: Scenario {
         sort = sortByAmount ? [SortSpec(column: 5, ascending: false)] : []
     }
 
-    /// The rate the model generates (row changes a second, before merging a row's changes
-    /// within a tick); the subtitle shows what was measured.
+    /// The row changes a second the model makes (a row's changes within a tick count once),
+    /// measured with `--calibrate-feed`.
     var nominalChanges: Int {
         switch model {
-        case .trades: 45_000
-        case .orders: 244_000
+        case .trades: 44_800
+        case .orders: 243_500
         case .instruments: 300_000
         }
     }
+
+    var nominalChangesPerSecond: Double? { Double(nominalChanges) }
 
     var subtitle: String {
         let what: String
@@ -204,13 +206,14 @@ final class SyntheticScenario: Scenario {
     func start() { pump?.start() }
     func stop() { pump?.stop() }
 
-    func applyPending(to engine: Engine?) -> Int {
-        guard let pump else { return 0 }
+    func applyPending(to engine: Engine?, at time: CFTimeInterval) -> Applied {
+        guard let pump else { return Applied() }
         let batch = pump.take()
-        guard !batch.isEmpty else { return 0 }
+        guard !batch.isEmpty else { return Applied() }
         engine?.beginUpdates()
-        let changes = store.apply(batch, engine: engine)
+        var applied = Applied(changes: store.apply(batch, engine: engine))
         engine?.endUpdates()
-        return changes
+        for tick in batch.ticks { applied.ages.append((time - tick.time, tick.changes)) }
+        return applied
     }
 }

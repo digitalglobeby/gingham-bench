@@ -31,14 +31,7 @@ nonisolated struct Machine: Codable, Sendable {
             return String(decoding: value.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
         }
         let info = ProcessInfo.processInfo
-        let thermal: String
-        switch info.thermalState {
-        case .nominal: thermal = "nominal"
-        case .fair: thermal = "fair"
-        case .serious: thermal = "serious"
-        case .critical: thermal = "critical"
-        @unknown default: thermal = "unknown"
-        }
+        let thermal = thermalName(info.thermalState.rawValue)
         #if DEBUG
         let build = "Debug"
         #else
@@ -51,6 +44,16 @@ nonisolated struct Machine: Codable, Sendable {
                        gingham: GHTableView.version, screen: screen?.localizedName ?? "?",
                        refreshRate: screen?.maximumFramesPerSecond ?? 0, lowPowerMode: info.isLowPowerModeEnabled,
                        thermalState: thermal, build: build)
+    }
+
+    static func thermalName(_ state: Int) -> String {
+        switch state {
+        case 0: "nominal"
+        case 1: "fair"
+        case 2: "serious"
+        case 3: "critical"
+        default: "unknown"
+        }
     }
 
     var line: String {
@@ -72,17 +75,21 @@ nonisolated struct RunResult: Codable, Sendable {
     var engine: String
     var engineTitle: String
     var run: Int
-    /// ok, timeout (no rows within the load timeout), stuck (the main thread didn't come back
-    /// after the window), error.
+    /// ok; timeout (no rows within the load timeout, or a sort step too long); stuck (the main
+    /// thread didn't come back after the window); invalid (the window was covered or the screen
+    /// locked during the run); error.
     var status: String
     var note: String?
     var rows: Int
     var warmup: Double
     var loadSeconds: Double?
+    /// Generated scenarios: the row changes a second the feed makes.
+    var nominalChangesPerSecond: Double?
     var numbers: RunNumbers?
     var sorts: [SortNumbers]?
-    /// Sort scenario: whether the order shown is Finder's all the way down (nil: not checked).
-    var orderIsFinder: Bool?
+    /// The order shown checked against the store after the run (live scenarios: stopped, then
+    /// every row in its place; sorts: Finder's order all the way down): "ok" or what's wrong.
+    var orderCheck: String?
     var machine: Machine
     var date: String
 
@@ -116,11 +123,14 @@ nonisolated enum Report {
         return text.split(separator: "\n").compactMap { try? decoder.decode(RunResult.self, from: Data($0.utf8)) }
     }
 
-    private static func range(_ values: [Double], digits: Int = 0, suffix: String = "") -> String {
-        guard let low = values.min(), let high = values.max() else { return "—" }
+    /// The median of the runs, and their lowest and highest: "120 (118–120)".
+    private static func median(_ values: [Double], digits: Int = 0, suffix: String = "") -> String {
+        guard !values.isEmpty else { return "—" }
+        let sorted = values.sorted()
+        let middle = sorted.count % 2 == 1 ? sorted[sorted.count / 2] : (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
         let format = { (value: Double) in value.formatted(.number.precision(.fractionLength(digits)).grouping(.automatic)) }
-        let (a, b) = (format(low), format(high))
-        return (a == b ? a : "\(a)–\(b)") + suffix
+        let (low, high) = (format(sorted.first!), format(sorted.last!))
+        return format(middle) + suffix + (low == high ? "" : " (\(low)–\(high))")
     }
 
     private static func localDate(_ iso: String) -> String {
@@ -140,12 +150,12 @@ nonisolated enum Report {
             let id = ScenarioID(rawValue: scenario)
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
-            if id == .sortText {
-                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest frame gap | Finder's order | Runs |")
+            if id?.isSort == true {
+                lines.append("| Engine | Time to sorted order | Frames during the sort | Longest stall | Finder's order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Frames/s | Worst second | Main thread busy | Longest frame gap | Changes applied/s | Process CPU | Memory | Runs |")
-                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+                lines.append("| Engine | Updates shown/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | Energy | Memory | Order | Runs |")
+                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             for engine in EngineKind.allCases.map(\.rawValue) {
                 let runs = ofScenario.filter { $0.engine == engine }
@@ -153,31 +163,41 @@ nonisolated enum Report {
                 let ok = runs.filter { $0.status == "ok" }
                 let failed = runs.filter { $0.status != "ok" }
                 let failure = failed.first.map { "\($0.status): \($0.note ?? "")" }
-                if id == .sortText {
+                let runCount = "\(runs.count)" + (failed.isEmpty ? "" : " (\(failed.count) \(failure ?? "failed"))")
+                let checks = ok.compactMap(\.orderCheck)
+                let order = checks.isEmpty ? "—" : checks.allSatisfy { $0 == "ok" } ? "ok" : "WRONG: " + (checks.first { $0 != "ok" } ?? "")
+                if id?.isSort == true {
                     let sorts = ok.flatMap { $0.sorts ?? [] }
                     guard !sorts.isEmpty else {
                         lines.append("| \(title) | \(failure ?? "—") | | | | \(runs.count) |")
                         continue
                     }
-                    let finder = ok.compactMap(\.orderIsFinder)
-                    lines.append("| \(title) | \(range(sorts.map(\.seconds), digits: 2, suffix: " s")) | \(range(sorts.map { Double($0.framesDuring) })) | \(range(sorts.map(\.longestFrameGapMs), suffix: " ms")) | \(finder.isEmpty ? "—" : finder.allSatisfy { $0 } ? "yes" : "NO") | \(runs.count)\(failed.isEmpty ? "" : " (\(failed.count) failed)") |")
+                    lines.append("| \(title) | \(median(sorts.map(\.seconds), digits: 2, suffix: " s")) | \(median(sorts.map { Double($0.framesDuring) })) | \(median(sorts.map(\.longestFrameGapMs), suffix: " ms")) | \(order) | \(runCount) |")
                 } else {
                     let numbers = ok.compactMap(\.numbers)
                     guard !numbers.isEmpty else {
-                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | \(runs.count) |")
+                        lines.append("| \(title) | \(failure ?? "—") | | | | | | | | | | | | \(runs.count) |")
                         continue
                     }
-                    let presented = numbers.compactMap(\.presentedPerSecond)
-                    let frames = range(numbers.map(\.framesPerSecond)) + (presented.isEmpty ? "" : " (\(range(presented)) presented)")
-                    lines.append("| \(title) | \(frames) | \(range(numbers.compactMap { $0.worstSecondFrames.map(Double.init) })) | \(range(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(range(numbers.map(\.longestFrameGapMs), suffix: " ms")) | \(range(numbers.map(\.changesPerSecond))) | \(range(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(range(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(runs.count)\(failed.isEmpty ? "" : " (\(failed.count) \(failure ?? "failed"))") |")
+                    var changes = median(numbers.map(\.changesPerSecond))
+                    if let nominal = ok.first?.nominalChangesPerSecond, let lowest = numbers.map(\.changesPerSecond).min(), lowest < nominal * 0.95 {
+                        changes += " ⚠︎ \(Int(lowest / nominal * 100))% of the feed"
+                    }
+                    let ages = "\(median(numbers.compactMap(\.dataAgeP50Ms), suffix: " ms")) / \(median(numbers.compactMap(\.dataAgeP99Ms), suffix: " ms"))"
+                    lines.append("| \(title) | \(median(numbers.map(\.updatesShownPerSecond))) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
                 }
             }
             lines.append("")
         }
-        lines += ["Frames/s: display-link callbacks the main thread got to (at most the screen's refresh rate); for Gingham also frames",
-                  "presented on the screen. Main thread busy: share of time its run loop wasn't waiting. Longest frame gap: the",
-                  "longest time between two callbacks. Process CPU: all threads, 100% = one core. Ranges are the lowest and highest",
-                  "of the runs. See the README for how each engine is set up.", ""]
+        let hot = results.compactMap(\.numbers?.thermalState).filter { $0 != "nominal" && $0 != "fair" }
+        if !hot.isEmpty { lines += ["⚠︎ \(hot.count) runs reached the thermal state \(Set(hot).sorted().joined(separator: ", ")): compare those with care.", ""] }
+        lines += ["Each value: the median of the runs (lowest–highest). Updates shown/s: display-link callbacks that applied new data",
+                  "(at most the screen's refresh rate). Data age: from generation (Binance: arrival) to the callback that applied it.",
+                  "Main thread busy: share of time its run loop wasn't waiting. Longest stall: the longest time between two callbacks.",
+                  "Callbacks/s: display-link callbacks the main thread got to. CPU: all threads, 100% = one core. GPU: the process's GPU",
+                  "time and the window server's (it composites all apps), ms a second. Energy: as the kernel accounts it to the process",
+                  "(mostly the CPU's). The window server's CPU time isn't measured. Order: the order shown,",
+                  "checked against the store after the run. See the README for how each engine is set up.", ""]
         return lines.joined(separator: "\n")
     }
 }

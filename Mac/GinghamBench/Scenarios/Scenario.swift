@@ -16,6 +16,7 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
     case binanceTickers = "binance-tickers"
     case binanceBooks = "binance-books"
     case sortText = "sort-text"
+    case sortTextAccount = "sort-text-account"
 
     var title: String {
         switch self {
@@ -24,12 +25,16 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
         case .tradeFeed: "Trade feed"
         case .binanceTickers: "Binance tickers"
         case .binanceBooks: "Binance order books"
-        case .sortText: "Sort by text"
+        case .sortText: "Sort by pair"
+        case .sortTextAccount: "Sort by account"
         }
     }
 
     /// Live market data from the network: numbers vary with the market.
     var isLiveMarket: Bool { self == .binanceTickers || self == .binanceBooks }
+
+    /// A static table sorted on request (the others are live).
+    var isSort: Bool { self == .sortText || self == .sortTextAccount }
 
     @MainActor func make(options: Options) -> Scenario {
         switch self {
@@ -38,7 +43,8 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
         case .tradeFeed: SyntheticScenario(id: self, model: .instruments, sortByAmount: false, rows: options.rows)
         case .binanceTickers: BinanceScenario(id: self, mode: .tickers, domain: options.binanceDomain)
         case .binanceBooks: BinanceScenario(id: self, mode: .depth, domain: options.binanceDomain)
-        case .sortText: SortScenario(rows: options.rows ?? 1_000_000, column: options.sortColumn)
+        case .sortText: SortScenario(id: self, rows: options.rows ?? 1_000_000, column: "pair")
+        case .sortTextAccount: SortScenario(id: self, rows: options.rows ?? 1_000_000, column: "account")
         }
     }
 }
@@ -52,18 +58,32 @@ protocol Scenario: AnyObject {
     var subtitle: String { get }
     /// Makes the rows (may take seconds); throws if they can't be had (no network).
     func prepare() async throws
+    /// The engine about to show the rows: told about every change from now on, also those that
+    /// come outside `applyPending` (Binance's order book snapshots).
+    func attach(_ engine: Engine)
     /// The feed starts (live scenarios).
     func start()
     func stop()
-    /// Applies what came since the last call to the store, telling the engine; the row changes
-    /// applied. Called once per screen frame.
-    func applyPending(to engine: Engine?) -> Int
+    /// Applies everything that came since the last call to the store, telling the engine.
+    /// Called at every screen frame (`time`: its display-link callback).
+    func applyPending(to engine: Engine?, at time: CFTimeInterval) -> Applied
+    /// The row changes a second the scenario generates, if it's generated.
+    var nominalChangesPerSecond: Double? { get }
+}
+
+/// What a frame applied: row changes, and how old the data was (generation or arrival → this
+/// callback), with how many changes had each age.
+struct Applied {
+    var changes = 0
+    var ages: [(age: Double, changes: Int)] = []
 }
 
 extension Scenario {
+    func attach(_ engine: Engine) {}
     func start() {}
     func stop() {}
-    func applyPending(to engine: Engine?) -> Int { 0 }
+    func applyPending(to engine: Engine?, at time: CFTimeInterval) -> Applied { Applied() }
+    var nominalChangesPerSecond: Double? { nil }
 }
 
 struct ScenarioError: LocalizedError {

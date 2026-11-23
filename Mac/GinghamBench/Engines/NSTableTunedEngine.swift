@@ -100,11 +100,12 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     func endUpdates() {
         depth -= 1
         guard depth == 0, let source = rows.source else { return }
-        let ended = rows.end(visible: { visibleRows }) { display, row, columns in
-            guard display < tableView.numberOfRows else { return }
-            for column in columns {
-                if let cell = tableView.view(atColumn: column, row: display, makeIfNecessary: false) as? TunedCell {
-                    cell.show(BenchFormat.text(source, row: row, column: column))
+        let ended = rows.end(visible: visibleRows)
+        let shown = tableView.numberOfRows, all = rows.allColumns
+        for refresh in ended.refreshes where refresh.display < shown {
+            for column in refresh.allColumns ? all : ended.columns {
+                if let cell = tableView.view(atColumn: column, row: refresh.display, makeIfNecessary: false) as? TunedCell {
+                    cell.show(BenchFormat.text(source, row: refresh.row, column: column))
                 }
             }
         }
@@ -133,6 +134,7 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     }
 
     var isSorting: Bool { rows.isSorting }
+    var displayedRowCount: Int { tableView.numberOfRows }
 
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard index >= 0, index < rows.count else { return nil }

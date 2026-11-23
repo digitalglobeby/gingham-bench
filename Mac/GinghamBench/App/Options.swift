@@ -8,20 +8,22 @@
 //    "Gingham Bench" --scenario live-trades --engine all --seconds 10 --runs 3 --output results/run.jsonl
 //
 //    --scenario <id|all|live>  live-trades, order-book, trade-feed, binance-tickers, binance-books,
-//                              sort-text; "all"; "live" (all but sort-text); a comma list
-//    --engine <id|all>         gingham, nstable, nstable-tuned, collection, swiftui; "all"; a comma list
+//                              sort-text (by pair), sort-text-account; "all"; "live" (no sorts); a comma list
+//    --engine <id|all>         gingham, nstable, nstable-tuned, nstable-cells, collection, swiftui,
+//                              swiftui-tuned; "all"; a comma list
 //    --seconds N               measured seconds per run (10)
 //    --warmup N                seconds after the rows show before measuring (3; Binance 5)
 //    --runs N                  runs of each engine (3), each in a new process
 //    --output PATH             JSON lines appended here; the Markdown table goes next to it (.md)
 //    --rows N                  another number of rows than the scenario's
-//    --sort-column pair|account  the sort scenario's column (pair)
 //    --binance-domain D        binance.com (or binance.us)
 //    --load-timeout N          seconds an engine may take to show its rows (30)
 //    --window WxH              the window's content size (1000x640)
 //    --gingham-extras          Gingham also highlights changes and shows a summary row
+//    --swiftui-diff-moves      the tuned SwiftUI Table gets reordered rows without a new .id (SwiftUI diffs the moves)
 //    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout)
 //    --check-formats           prints where the other engines' number text differs from Gingham's
+//    --calibrate-feed MODEL    prints the row changes a second a generated feed makes (trades, orders, instruments)
 //    --cycle N                 window mode: switch engines every N seconds (for recording); --quit after a round
 //
 
@@ -36,11 +38,12 @@ struct Options {
     var run = 1
     var output: String?
     var rows: Int?
-    var sortColumn = "pair"
+    var calibrateFeed: String?
     var binanceDomain = "binance.com"
     var loadTimeout: Double = 30
     var windowSize = NSSize(width: 1000, height: 640)
     var ginghamExtras = false
+    var swiftUIDiffsMoves = false
     var summarize: String?
     var markdown: String?
     var checkFormats = false
@@ -75,7 +78,7 @@ struct Options {
                 let text = try value(argument)
                 switch text {
                 case "all": options.scenarios = ScenarioID.allCases
-                case "live": options.scenarios = ScenarioID.allCases.filter { $0 != .sortText }
+                case "live": options.scenarios = ScenarioID.allCases.filter { !$0.isSort }
                 default:
                     options.scenarios = try text.split(separator: ",").map {
                         guard let id = ScenarioID(rawValue: String($0)) else { throw ScenarioError("no scenario \($0)") }
@@ -94,7 +97,7 @@ struct Options {
             case "--run": options.run = Int(try number(argument))
             case "--output": options.output = try value(argument)
             case "--rows": options.rows = Int(try number(argument))
-            case "--sort-column": options.sortColumn = try value(argument)
+            case "--calibrate-feed": options.calibrateFeed = try value(argument)
             case "--binance-domain": options.binanceDomain = try value(argument)
             case "--load-timeout": options.loadTimeout = try number(argument)
             case "--window":
@@ -102,6 +105,7 @@ struct Options {
                 guard parts.count == 2 else { throw ScenarioError("--window WxH") }
                 options.windowSize = NSSize(width: parts[0], height: parts[1])
             case "--gingham-extras": options.ginghamExtras = true
+            case "--swiftui-diff-moves": options.swiftUIDiffsMoves = true
             case "--summarize": options.summarize = try value(argument)
             case "--markdown": options.markdown = try value(argument)
             case "--check-formats": options.checkFormats = true
@@ -126,11 +130,12 @@ struct Options {
     func childArguments(scenario: ScenarioID, engine: EngineKind, run: Int, output: String) -> [String] {
         var arguments = ["--child", "--scenario", scenario.rawValue, "--engine", engine.rawValue, "--run", String(run),
                          "--seconds", String(seconds), "--output", output, "--load-timeout", String(loadTimeout),
-                         "--window", "\(Int(windowSize.width))x\(Int(windowSize.height))", "--sort-column", sortColumn,
+                         "--window", "\(Int(windowSize.width))x\(Int(windowSize.height))",
                          "--binance-domain", binanceDomain, "-ApplePersistenceIgnoreState", "YES"]
         if let warmup { arguments += ["--warmup", String(warmup)] }
         if let rows { arguments += ["--rows", String(rows)] }
         if ginghamExtras { arguments.append("--gingham-extras") }
+        if swiftUIDiffsMoves { arguments.append("--swiftui-diff-moves") }
         return arguments
     }
 }

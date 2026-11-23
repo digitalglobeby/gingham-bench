@@ -166,22 +166,20 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         depth -= 1
         guard depth == 0, let source = rows.source else { return }
         let shownCount = collectionView.numberOfItems(inSection: 0)
-        let ended = rows.end(visible: { visibleRows }) { display, row, columns in
-            guard display < shownCount, let item = collectionView.item(at: IndexPath(item: display, section: 0)) as? Item else { return }
-            for column in columns where column < item.cells.count {
-                item.cells[column].show(BenchFormat.text(source, row: row, column: column))
+        let ended = rows.end(visible: visibleRows)
+        let all = rows.allColumns
+        for refresh in ended.refreshes where refresh.display < shownCount {
+            guard let item = collectionView.item(at: IndexPath(item: refresh.display, section: 0)) as? Item else { continue }
+            for column in refresh.allColumns ? all : ended.columns where column < item.cells.count {
+                item.cells[column].show(BenchFormat.text(source, row: refresh.row, column: column))
             }
         }
         guard ended.countChanged else { return }
         // The items past the end come or go; the rows before them were updated above.
         let count = rows.count
-        collectionView.performBatchUpdates {
-            if count > shownCount {
-                collectionView.insertItems(at: Set((shownCount..<count).map { IndexPath(item: $0, section: 0) }))
-            } else {
-                collectionView.deleteItems(at: Set((count..<shownCount).map { IndexPath(item: $0, section: 0) }))
-            }
-        }
+        var paths = Set<IndexPath>()
+        for item in min(count, shownCount) ..< max(count, shownCount) { paths.insert(IndexPath(item: item, section: 0)) }
+        if count > shownCount { collectionView.insertItems(at: paths) } else { collectionView.deleteItems(at: paths) }
     }
 
     func insertRows(_ inserted: Range<Int>) { rows.insertRows(inserted) }
@@ -197,6 +195,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     }
 
     var isSorting: Bool { rows.isSorting }
+    var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
 
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard index >= 0, index < rows.count else { return nil }

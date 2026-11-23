@@ -101,7 +101,8 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
                 }
             }
         } else {
-            let rows = changedRows.filteredIndexSet { $0 < source.rowCount }
+            var rows = changedRows
+            rows.remove(integersIn: source.rowCount ..< max(source.rowCount, (rows.last ?? 0) + 1))
             if !rows.isEmpty { tableView.reloadData(forRowIndexes: rows, columnIndexes: changedColumns) }
             tableView.endUpdates()
         }
@@ -166,6 +167,7 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
     }
 
     var isSorting: Bool { false }
+    var displayedRowCount: Int { tableView.numberOfRows }
 
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard let source, index >= 0, index < source.rowCount else { return nil }
@@ -188,7 +190,8 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
             field.lineBreakMode = .byTruncatingTail
             field.alignment = source.columns[index].isTrailing ? .right : .left
         }
-        let sourceRow = order.map { row < $0.count ? $0[row] : -1 } ?? row
+        var sourceRow = row
+        if let order { sourceRow = row < order.count ? order[row] : -1 }
         field.stringValue = sourceRow >= 0 && sourceRow < source.rowCount ? BenchFormat.text(source, row: sourceRow, column: index) : ""
         return field
     }

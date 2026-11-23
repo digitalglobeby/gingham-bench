@@ -15,6 +15,8 @@ final class Bar: NSView {
     let frames = NSTextField(labelWithString: "")
     let busy = NSTextField(labelWithString: "")
     let subtitle = NSTextField(labelWithString: "")
+    /// Data age and callbacks a second.
+    let small = NSTextField(labelWithString: "")
     let controls = NSStackView()
 
     init(interactive: Bool) {
@@ -22,7 +24,7 @@ final class Bar: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         engine.font = .systemFont(ofSize: 28, weight: .bold)
-        for label in [detail, subtitle] {
+        for label in [detail, subtitle, small] {
             label.font = .systemFont(ofSize: 13)
             label.textColor = .secondaryLabelColor
             label.lineBreakMode = .byTruncatingTail
@@ -32,6 +34,8 @@ final class Bar: NSView {
             label.alignment = .right
         }
         subtitle.alignment = .right
+        small.alignment = .right
+        small.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         controls.spacing = 8
         let left = NSStackView(views: interactive ? [engine, controls] : [engine, detail])
         left.orientation = .vertical
@@ -39,10 +43,10 @@ final class Bar: NSView {
         left.spacing = 4
         let numbers = NSStackView(views: [frames, busy])
         numbers.spacing = 28
-        let right = NSStackView(views: [numbers, subtitle])
+        let right = NSStackView(views: [numbers, small, subtitle])
         right.orientation = .vertical
         right.alignment = .trailing
-        right.spacing = 4
+        right.spacing = 2
         for view in [left, right] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -60,9 +64,10 @@ final class Bar: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func update(frames count: Int, busy share: Double, presented: Int?, refreshRate: Int) {
-        frames.stringValue = "\(count) frames/s"
+    func update(updates count: Int, busy share: Double, callbacks: Int, age: Double?, refreshRate: Int) {
+        frames.stringValue = "\(count) updates/s"
         busy.stringValue = "main thread \(Int((share * 100).rounded()))% busy"
+        small.stringValue = (age.map { "data age \(Int(($0 * 1000).rounded())) ms · " } ?? "") + "\(callbacks) callbacks/s"
         let rate = max(refreshRate, 60)
         frames.textColor = count >= rate * 5 / 6 ? .systemGreen : count >= rate / 3 ? .systemOrange : .systemRed
         busy.textColor = share < 0.75 ? .systemGreen : share < 0.9 ? .systemOrange : .systemRed
@@ -71,6 +76,7 @@ final class Bar: NSView {
     func clearNumbers() {
         frames.stringValue = ""
         busy.stringValue = ""
+        small.stringValue = ""
     }
 }
 

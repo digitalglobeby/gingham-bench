@@ -7,14 +7,15 @@
 //  engine. Three models:
 //
 //  - `trades` (scenario `live-trades`): the README's comparison window, 20,000 trades of 32
-//    pairs; 60 times a second 750 random trades change price and quantity (45,000 changes a
-//    second). The same generator (seed, steps) as the original comparison app.
+//    pairs; random trades change price and quantity, 45,000 a second (the original comparison
+//    app changed 750 sixty times a second; here 187.5 every 1/240 s, the same generator, seed
+//    and steps, so that changes come continuously).
 //  - `orders` (`order-book`): 200,000 resting orders of 500 instruments; every 2 ms 0.2% of
 //    the rows are picked (Zipf-distributed, exponent 1: the first rows are the busiest), each
 //    partially filled or repriced by 1–3 ticks; 50,000 new orders a second, and as many leave
 //    (filled ones first, then random cancels). About 244,000 row changes a second (an order
 //    picked twice in one tick counts once).
-//  - `instruments` (`trade-feed`): 1,000,000 instruments with 23 fields; every 10 ms 0.5% of
+//  - `instruments` (`trade-feed`): 1,000,000 instruments with 23 fields; every 4 ms 0.176% of
 //    the rows are picked (Zipf, exponent 1), each changing 3 fields (half of the changes move
 //    the price: last and change, bid/ask when the price leaves the spread), plus status
 //    changes; 1,000 instruments listed and 1,000 delisted a second. About 300,000 row changes
@@ -99,6 +100,9 @@ nonisolated struct FeedBatch: Sendable {
     var masks: [UInt64] = []
     /// Records of inserts and updates, `width` values each, in the order of their changes.
     var values: [Double] = []
+    /// When each tick was generated (`CACurrentMediaTime`) and its changes: the data's age when
+    /// a screen frame applies it.
+    var ticks: [(time: Double, changes: Int)] = []
 
     var count: Int { kinds.count }
     var isEmpty: Bool { kinds.isEmpty }
@@ -108,6 +112,7 @@ nonisolated struct FeedBatch: Sendable {
         rows += other.rows
         masks += other.masks
         values += other.values
+        ticks += other.ticks
     }
 
     mutating func removeAll() {
@@ -115,6 +120,7 @@ nonisolated struct FeedBatch: Sendable {
         rows.removeAll(keepingCapacity: true)
         masks.removeAll(keepingCapacity: true)
         values.removeAll(keepingCapacity: true)
+        ticks.removeAll(keepingCapacity: true)
     }
 }
 
@@ -129,12 +135,13 @@ nonisolated enum FeedModel: String, Sendable {
         }
     }
 
-    /// Seconds between ticks.
+    /// Seconds between ticks: more often than any screen refreshes, so that changes accumulate
+    /// continuously and an engine fast enough can show new data at every screen frame.
     var tickInterval: Double {
         switch self {
-        case .trades: 1.0 / 60
+        case .trades: 1.0 / 240
         case .orders: 0.002
-        case .instruments: 0.010
+        case .instruments: 0.004
         }
     }
 
@@ -255,7 +262,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
     /// Virtual time, µs: starts at a fixed moment, advances by the tick interval.
     private var time: Double = 1_767_605_400_000_000
     private var nextKey = 0
-    private var insertCarry = 0.0, deleteCarry = 0.0, changeCarry = 0.0
+    private var insertCarry = 0.0, deleteCarry = 0.0, changeCarry = 0.0, walkCarry = 0.0
     /// Per row (generator state not shown): trades' opening price, instruments' volatility.
     private var extra: [Double] = []
     /// Orders: instruments' mid prices; rows filled completely in the last tick.
@@ -267,10 +274,12 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
     /// The comparison app's generator (live trades), kept as it was.
     private var lcg: UInt64 = 0x9E37_79B9_7F4A_7C15
 
-    // Rates.
-    private let changeRate: Double
+    // Rates, a second.
+    /// Rows picked for a change, per row (orders, instruments).
+    private let picksPerRow: Double
     private let insertsPerSecond: Double
-    private let changesPerTick: Int
+    /// Trades changed.
+    private let tradeChanges: Double
 
     init(model: FeedModel, rows: Int? = nil, seed: UInt64 = 42) {
         self.model = model
@@ -279,17 +288,22 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         let rows = rows ?? model.rows
         switch model {
         case .trades:
-            changeRate = 0
+            picksPerRow = 0
             insertsPerSecond = 0
-            changesPerTick = 45_000 / 60
+            tradeChanges = 45_000
         case .orders:
-            changeRate = 0.002
+            // ngfeed's `orders`: 0.2% of the rows every 2 ms.
+            picksPerRow = 1.0
             insertsPerSecond = 50_000
-            changesPerTick = 0
+            tradeChanges = 0
         case .instruments:
-            changeRate = 0.005
+            // ngfeed's `firehose` picks 0.5% of the rows every 10 ms (0.5 a row a second), and
+            // about 300,000 distinct row changes a second reach the table after merging a row's
+            // changes within a tick. Ticking every 4 ms merges fewer, so the rate of picks is
+            // set to give the same ~300,000 row changes a second.
+            picksPerRow = 0.44
             insertsPerSecond = 1_000
-            changesPerTick = 0
+            tradeChanges = 0
         }
         cells.reserveCapacity((rows + rows / 16) * width)
         switch model {
@@ -419,7 +433,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
     }
 
     private func tickTrades(into batch: inout FeedBatch) {
-        for _ in 0..<changesPerTick {
+        for _ in 0..<Self.takeCarry(&changeCarry, tradeChanges * tickInterval) {
             let row = Int(lcgNext() % UInt64(count))
             let step = Double(Int(lcgNext() % 2001) - 1000) / 100_000
             let price = max(0.01, cell(row, 3) * (1 + step))
@@ -438,7 +452,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         let orders = model == .orders
         if orders {
             // The instruments' mid prices walk.
-            for _ in 0..<(1 + mids.count / 50) {
+            for _ in 0..<Self.takeCarry(&walkCarry, Double(1 + mids.count / 50) * 500 * dt) {
                 let index = random.below(mids.count)
                 mids[index] *= exp(0.0005 * random.normal())
             }
@@ -464,15 +478,15 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
             touched.append(-1)
         }
         // Changes.
-        let picks = Self.takeCarry(&changeCarry, changeRate * Double(count))
+        let picks = Self.takeCarry(&changeCarry, picksPerRow * Double(count) * dt)
         if count > 0, let picker {
             for _ in 0..<picks {
                 let row = picker.pick(&random, below: count)
                 touch(row, orders ? changeOrder(row) : changeInstrument(row), firstInserted: firstInserted)
             }
             if !orders {
-                // Status changes (0.01% of the rows a tick).
-                for _ in 0..<random.poisson(Double(count) * 0.0001) {
+                // Status changes (1% of the rows a second, as ngfeed's 0.01% every 10 ms).
+                for _ in 0..<random.poisson(Double(count) * 0.01 * dt) {
                     let row = random.below(count)
                     touch(row, changeStatus(row), firstInserted: firstInserted)
                 }
@@ -642,6 +656,7 @@ nonisolated final class FeedPump: @unchecked Sendable {
                 continue
             }
             generator.tick(into: &local)
+            local.ticks.append((CACurrentMediaTime(), local.count))
             lock.lock()
             pending.append(contentsOf: local)
             lock.unlock()

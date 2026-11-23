@@ -137,24 +137,3 @@ enum BenchFormat {
         return differences
     }
 }
-
-/// Compares two rows by sort specs, as the apps of NSTableView and SwiftUI's Table sort: numbers
-/// by value (empty first), text in Finder's order (`localizedStandardCompare`), the order
-/// Gingham sorts text in too.
-enum RowComparison {
-    static func compare(_ source: BenchSource, _ a: Int, _ b: Int, by sort: [SortSpec]) -> ComparisonResult {
-        for spec in sort {
-            var result: ComparisonResult
-            if source.columns[spec.column].kind == .text {
-                result = source.text(a, spec.column).localizedStandardCompare(source.text(b, spec.column))
-            } else {
-                let x = source.number(a, spec.column), y = source.number(b, spec.column)
-                result = x.isNaN ? (y.isNaN ? .orderedSame : .orderedAscending) : y.isNaN ? .orderedDescending
-                    : x < y ? .orderedAscending : x > y ? .orderedDescending : .orderedSame
-            }
-            if !spec.ascending { result = ComparisonResult(rawValue: -result.rawValue)! }
-            if result != .orderedSame { return result }
-        }
-        return .orderedSame
-    }
-}

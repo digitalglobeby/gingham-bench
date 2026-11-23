@@ -23,17 +23,17 @@ import AppKit
 import SwiftUI
 
 /// A cell's value (numbers NaN when empty).
-enum SwiftUICell: Hashable {
+nonisolated enum SwiftUICell: Hashable, Sendable {
     case text(String)
     case number(Double)
 }
 
-struct SwiftUIRow: Identifiable {
+nonisolated struct SwiftUIRow: Identifiable, Sendable {
     let id: Int
     var values: [SwiftUICell]
 }
 
-struct SwiftUIColumn: Identifiable, Hashable {
+nonisolated struct SwiftUIColumn: Identifiable, Hashable, Sendable {
     let id: Int
     let title: String
     let width: CGFloat
@@ -42,7 +42,7 @@ struct SwiftUIColumn: Identifiable, Hashable {
 }
 
 /// Rows by a column: numbers by value (empty first), text in Finder's order.
-struct SwiftUIRowComparator: SortComparator, Hashable {
+nonisolated struct SwiftUIRowComparator: SortComparator, Hashable, Sendable {
     var column: Int
     var order: SortOrder = .forward
 
@@ -138,7 +138,10 @@ final class SwiftUIEngine: Engine {
 
     private func makeRow(_ row: Int) -> SwiftUIRow {
         let count = source?.columns.count ?? 0
-        return SwiftUIRow(id: source?.identifier(row) ?? row, values: (0..<count).map { cell(row, $0) })
+        var values: [SwiftUICell] = []
+        values.reserveCapacity(count)
+        for column in 0..<count { values.append(cell(row, column)) }
+        return SwiftUIRow(id: source?.identifier(row) ?? row, values: values)
     }
 
     func load(_ source: BenchSource, sort: [SortSpec]) {
@@ -149,7 +152,9 @@ final class SwiftUIEngine: Engine {
         isSettingSortOrder = true
         model.sortOrder = sort.map { SwiftUIRowComparator(column: $0.column, order: $0.ascending ? .forward : .reverse) }
         isSettingSortOrder = false
-        let rows = (0..<source.rowCount).map(makeRow)
+        var rows: [SwiftUIRow] = []
+        rows.reserveCapacity(source.rowCount)
+        for row in 0..<source.rowCount { rows.append(makeRow(row)) }
         if isSorted {
             storeRows = rows
             model.rows = rows.sorted(using: model.sortOrder)
@@ -236,7 +241,18 @@ final class SwiftUIEngine: Engine {
         return nil
     }
 
+    var displayedRowCount: Int { model.rows.count }
+
+    /// Rows are found by their records' identity (made again when a check starts at place 0).
+    private var rowOfID: [Int: Int] = [:]
+
     func sourceRow(atDisplayIndex index: Int) -> Int? {
-        index < model.rows.count ? model.rows[index].id : nil
+        guard let source, index < model.rows.count else { return nil }
+        if index == 0 || rowOfID.isEmpty {
+            rowOfID = [:]
+            rowOfID.reserveCapacity(source.rowCount)
+            for row in 0..<source.rowCount { rowOfID[source.identifier(row)] = row }
+        }
+        return rowOfID[model.rows[index].id]
     }
 }

@@ -2,7 +2,9 @@
 # Builds the Mac app (Release) and runs every scenario with every engine, each run in a process
 # of its own, writing results/<date>.jsonl (a JSON line per run) and results/<date>.md (the table).
 #
-#   Scripts/run-all.sh                          everything: 6 scenarios × 5 engines × 3 runs of 10 s (~25 min)
+#   Scripts/run-all.sh                          everything: 7 scenarios × 7 engines × 3 runs of 10 s (about 75 minutes:
+#                                               runs wait for Binance's request limit, SwiftUI's Table runs out
+#                                               its timeouts, and sorts on the main thread take a while)
 #   Scripts/run-all.sh --scenario live-trades   any of the app's arguments (see Mac/GinghamBench/App/Options.swift)
 #   Scripts/run-all.sh --runs 5 --seconds 20
 #
@@ -35,7 +37,10 @@ if ! build; then
   build CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= || { echo "✗ build failed:"; grep -E "error:" "$LOG" | head -5; exit 1 }
 fi
 APP="$DERIVED/Build/Products/Release/Gingham Bench.app/Contents/MacOS/Gingham Bench"
+# The engines' hot code without Swift 6's per-call isolation checks (see the script).
+Scripts/check-isolation.sh "$APP"
 
-# Awake for the whole run (display too: a sleeping display stops the frames).
-caffeinate -dimsu -w $$ &
+# Awake for the whole run, the display too (a sleeping display stops the frames; runs during
+# which the screen locked or the window was covered are reported as invalid).
+caffeinate -dims -w $$ &
 "$APP" --scenario all --engine all --seconds 10 --runs 3 --output "results/$STAMP.jsonl" "$@"
