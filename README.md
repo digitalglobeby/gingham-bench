@@ -122,7 +122,9 @@ data age, updates applied). **Numbers vary** with the market, the
 time of day and the network; compare engines within one session. Data doesn't arrive at every
 screen refresh, so even an engine that keeps up shows fewer updates a second than the refresh
 rate. Binance allows 6,000 request weight a minute per IP and bans IPs that go over, so the runs
-check the weight used and wait for the next minute when their requests wouldn't fit. Where
+check the weight used and wait for the next minute when their requests wouldn't fit. Each request
+is tried 4 times when the network fails; a run that still gets no answer is reported as the
+network's failure ("network: timed out"), not the engine's, and its scenario is to be run again. Where
 `binance.com` is closed, use `--binance-domain binance.us`.
 
 **`sort-text`** and **`sort-text-account`** are a static table of 1,000,000 trades, sorted by a
