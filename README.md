@@ -631,8 +631,42 @@ updates.)
 
 ### iPhone
 
-New numbers with Gingham 1.1.3 follow within the hour. (The earlier ones, Gingham 1.1.1 on an
-iPhone 15 Pro Max, are in [`results/ios`](results/ios).)
+iPhone 15 Pro Max (iPhone16,2), iOS 27.2.1, Gingham 1.1.3, 120 Hz, Release build, 2026-11-24; the
+JSON summaries are in [`results/ios`](results/ios) (`*-2026-11-24-185915.json`).
+
+Instruments' Animation Hitches on the device (the primary render-side figure: everything that made
+a frame late, wherever the work happened; one recording per engine while the app runs its tests at
+100,000 rows and 1,000 changes a second): hitch time, ms a second, in the steady · fast · flick
+scrolling tests.
+
+| Engine | Steady | Fast | Flicks |
+| --- | --- | --- | --- |
+| Gingham | 0 | 3.6 | 6.2 |
+| UITableView (typical) | 501.3 | 506.4 | 501.2 |
+| UITableView (tuned) | 2.1 | 1.0 | 6.2 |
+| UICollectionView (typical) | 2.1 | 1.0 | 0 |
+| UICollectionView (tuned) | 2.1 | 2.1 | 2.1 |
+| SwiftUI List | 1.6 | 3.1 | 4.2 |
+
+Under 5 ms a second is good, over 10 bad (Apple's guidance). The app's own meter (secondary: the
+main thread's frame callbacks, which can't see work done after the main thread hands a frame over),
+flick test, median of 3 runs: frames a second · main thread busy.
+
+| Engine | 100,000 rows, 1,000 changes/s | 1,000,000 rows, 10,000 changes/s |
+| --- | --- | --- |
+| Gingham | 120 · 19% | 120 · 29% |
+| UITableView (typical) | 62.4 · 80% | 7.0 · 99% |
+| UITableView (tuned) | 120 · 40% | 120 · 41% |
+| UICollectionView (typical) | 120 · 43% | 120 · 41% |
+| UICollectionView (tuned) | 120 · 39% | 120 · 41% |
+| SwiftUI List | 120 · 40% | 120 · 41% |
+
+XCUITest flicks (UIKit's own scroll metric, five flicks each; the 2026-11-23 run, Gingham 1.1.1,
+[`ios-flicks-2026-11-23-104601.json`](results/ios/ios-flicks-2026-11-23-104601.json)): no hitches
+and 116–119 frames a second for every engine (Gingham 117.6, UITableView tuned 119.0,
+UICollectionView typical 116.0 and tuned 118.7, SwiftUI List 117.3; medians of the five flicks)
+except the typical UITableView: a median of 294 hitches a flick, a hitch time ratio of 72.5 ms a
+second, 111.1 frames a second.
 
 ## Layout of the repository
 

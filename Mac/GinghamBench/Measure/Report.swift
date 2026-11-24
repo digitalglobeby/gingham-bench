@@ -241,7 +241,7 @@ nonisolated enum Report {
                 lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Frames with new data/s (max \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU · idle | GPU, process + window server | CPU energy | Memory | Order | Runs |")
+                lines.append("| Engine | Frames with new data/s (max = the display's rate, \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU · idle | GPU, process + window server | CPU energy | Memory | Order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             var laidOut: [String] = []
@@ -333,7 +333,7 @@ nonisolated enum Report {
             }
             if id?.isSort != true {
                 lines += ["Frames with new data: how many times a second the table's picture actually changed (at least one visible",
-                          "value new); like frames a second, but a frozen table scores 0, not \(first.machine.refreshRate).", ""]
+                          "value new); like frames a second, but a frozen table scores 0, not the display's rate (\(first.machine.refreshRate) here).", ""]
             }
             if !laidOut.isEmpty {
                 lines += ["Rows × columns laid out for the window at the end of a run: " + laidOut.joined(separator: " · ") + ".", ""]

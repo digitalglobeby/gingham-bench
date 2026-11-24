@@ -1,9 +1,11 @@
 #!/bin/zsh
-# Publishes the bench (the maintainer, after review): creates the public repository
-# digitalglobeby/gingham-bench, pushes main, and makes release v1.0 with the notarized Mac app
-# (Scripts/release.sh makes it). Needs `gh` signed in with rights on the digitalglobeby org.
+# Publishes a release of the bench (the maintainer, after review): pushes main to the public
+# repository digitalglobeby/gingham-bench and makes release v<version> (Mac/project.yml's
+# MARKETING_VERSION) with the notarized Mac app and its checksum (Scripts/release.sh makes them,
+# from the same commit). Needs `gh` signed in with rights on the digitalglobeby org.
 #
-#   Scripts/publish.sh
+#   Scripts/publish.sh           push main, release v<version>
+#   Scripts/publish.sh --create  the first time only: create the public repository too
 set -e
 cd "$(dirname "$0")/.."
 REPO=digitalglobeby/gingham-bench
@@ -12,11 +14,22 @@ ZIP="release/GinghamBench-$VERSION.zip"
 [[ -f "$ZIP" && -f "$ZIP.sha256" ]] || { echo "✗ no $ZIP: run Scripts/release.sh first"; exit 1 }
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "✗ uncommitted changes"; exit 1 }
 [[ "$(git branch --show-current)" == main ]] || { echo "✗ not on main"; exit 1 }
+# The zip must be of this commit (release.sh notes the commit it built in release/log.txt).
+BUILT=$(sed -n 's/^▸ archive Gingham Bench .* of \([0-9a-f]*\) with.*/\1/p' release/log.txt 2>/dev/null | tail -1)
+HEAD=$(git rev-parse --short HEAD)
+[[ -z "$BUILT" || "$BUILT" == "$HEAD" ]] || { echo "✗ $ZIP was built from $BUILT, not $HEAD: run Scripts/release.sh again"; exit 1 }
+if gh release view "v$VERSION" -R "$REPO" > /dev/null 2>&1; then
+  echo "✗ release v$VERSION exists: raise MARKETING_VERSION in Mac/project.yml"; exit 1
+fi
 
-# The repository, public, with this one as its origin; main pushed.
-gh repo create "$REPO" --public \
-  --description "An open benchmark of Gingham, NSTableView, NSCollectionView and SwiftUI Table on live data (Mac, iPhone, iPad)" \
-  --homepage "https://github.com/digitalglobeby/Gingham" --source . --remote origin --push
+if [[ "$1" == --create ]]; then
+  # The repository, public, with this one as its origin; main pushed.
+  gh repo create "$REPO" --public \
+    --description "An open benchmark of Gingham, NSTableView, NSCollectionView and SwiftUI Table on live data (Mac, iPhone, iPad)" \
+    --homepage "https://github.com/digitalglobeby/Gingham" --source . --remote origin --push
+else
+  git push origin main
+fi
 
 # The release: the notarized app and its checksum.
 NOTES=$(mktemp)

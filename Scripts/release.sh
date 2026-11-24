@@ -33,7 +33,8 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$LOG"
 KEY=(-authenticationKeyPath "$AUTH_KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER")
 
-echo "▸ archive Gingham Bench $VERSION ($BUILD) of $COMMIT with $(xcodebuild -version | head -1)"
+# (The commit goes into the log too: Scripts/publish.sh checks the zip is of the commit it pushes.)
+echo "▸ archive Gingham Bench $VERSION ($BUILD) of $COMMIT with $(xcodebuild -version | head -1)" | tee -a "$LOG"
 xcodebuild clean archive -project Mac/GinghamBench.xcodeproj -scheme GinghamBench -configuration Release \
   -destination "generic/platform=macOS" -archivePath "$WORK/GinghamBench.xcarchive" -derivedDataPath "$WORK/DerivedData" \
   -allowProvisioningUpdates "${KEY[@]}" >> "$LOG" 2>&1 \
