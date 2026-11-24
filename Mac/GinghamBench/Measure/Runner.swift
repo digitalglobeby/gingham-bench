@@ -186,6 +186,8 @@ final class ChildRun {
         let scale = ui.window.backingScaleFactor
         result.window = "\(Int(options.windowSize.width))x\(Int(options.windowSize.height))"
         result.windowPixels = "\(Int(options.windowSize.width * scale))x\(Int(options.windowSize.height * scale))"
+        result.after = options.afterEngine
+        result.settleSeconds = options.settleSeconds
         return result
     }
 
@@ -382,10 +384,13 @@ final class ChildRun {
     }
 
     private func makeBasicResult(status: String, note: String?) -> RunResult {
-        RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, pass: options.pass,
-                  status: status, note: note, rows: 0, warmup: 0, loadSeconds: nil, nominalChangesPerSecond: nil,
-                  numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
-                  date: ISO8601DateFormatter().string(from: Date()))
+        var result = RunResult(scenario: scenarioID.rawValue, engine: kind.rawValue, engineTitle: kind.title, run: options.run, pass: options.pass,
+                               status: status, note: note, rows: 0, warmup: 0, loadSeconds: nil, nominalChangesPerSecond: nil,
+                               numbers: nil, sorts: nil, orderCheck: nil, machine: Machine.current(screen: ui.window.screen),
+                               date: ISO8601DateFormatter().string(from: Date()))
+        result.after = options.afterEngine
+        result.settleSeconds = options.settleSeconds
+        return result
     }
 
     private func finish(status: String, note: String?) {
@@ -502,6 +507,86 @@ final class ChildRun {
     }
 }
 
+/// The order of the engines in a round: a balanced Latin square (Williams design) by rows, so
+/// over the rounds every engine runs right after each of the others about equally often (for
+/// an even count exactly once in `count` rounds, for an odd one in twice as many).
+nonisolated func balancedOrder(count n: Int, round: Int) -> [Int] {
+    guard n > 1 else { return Array(0..<n) }
+    // First row: 0, 1, n-1, 2, n-2, …
+    var first = [0], low = 1, high = n - 1, takeLow = true
+    while first.count < n {
+        if takeLow { first.append(low); low += 1 } else { first.append(high); high -= 1 }
+        takeLow.toggle()
+    }
+    let cycle = n % 2 == 0 ? n : 2 * n
+    let k = round % cycle
+    let row = first.map { ($0 + k % n) % n }
+    return k >= n ? row.reversed() : row
+}
+
+/// Waits after a run until the window server is back near its idle rates: the next run doesn't
+/// start while the last one's window (up to 7680 × 4320 pixels) is still being torn down.
+nonisolated enum WindowServerSettle {
+    /// The window server's CPU (percent of a core) and GPU (ms a second) over two seconds.
+    static func idleRates() -> (cpu: Double, gpu: Double) { rates(over: 2) }
+
+    /// At least 3 s, then until two half-second samples in a row are within 5 points of CPU and
+    /// 20 ms/s of GPU of the idle rates, and no other copy of the app runs; at most 30 s. The
+    /// seconds waited.
+    static func wait(idle: (cpu: Double, gpu: Double)) -> Double {
+        let start = Date()
+        Thread.sleep(forTimeInterval: 3)
+        var calm = 0
+        while Date().timeIntervalSince(start) < 30 {
+            let now = rates(over: 0.5)
+            let othersRun = !runningCopies().isEmpty
+            calm = !othersRun && now.cpu <= idle.cpu + 5 && now.gpu <= idle.gpu + 20 ? calm + 1 : 0
+            if calm >= 2 { break }
+        }
+        return Date().timeIntervalSince(start)
+    }
+
+    private static func runningCopies() -> [pid_t] {
+        let me = ProcessInfo.processInfo.processIdentifier
+        let output = run("/usr/bin/pgrep", ["-f", Bundle.main.executablePath ?? "Gingham Bench"]) ?? ""
+        return output.split(separator: "\n").compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) }.filter { $0 != me }
+    }
+
+    private static func rates(over seconds: Double) -> (cpu: Double, gpu: Double) {
+        let pid = run("/usr/bin/pgrep", ["-x", "WindowServer"])?.split(separator: "\n").first.map(String.init) ?? ""
+        let (cpu0, gpu0, t0) = (cpuSeconds(pid), Meter.gpuTimes().windowServer, Date())
+        Thread.sleep(forTimeInterval: seconds)
+        let (cpu1, gpu1) = (cpuSeconds(pid), Meter.gpuTimes().windowServer)
+        let elapsed = max(Date().timeIntervalSince(t0), 0.001)
+        return (max(0, cpu1 - cpu0) / elapsed * 100, max(0, gpu1 - gpu0) / 1_000_000 / elapsed)
+    }
+
+    /// A process's CPU time so far, from `ps` (the window server is another user's process).
+    private static func cpuSeconds(_ pid: String) -> Double {
+        guard !pid.isEmpty, let text = run("/bin/ps", ["-o", "time=", "-p", pid])?.trimmingCharacters(in: .whitespacesAndNewlines) else { return 0 }
+        // [[dd-]hh:]mm:ss.ss
+        var seconds = 0.0, factor = 1.0
+        for part in text.split(whereSeparator: { $0 == ":" || $0 == "-" }).reversed() {
+            seconds += (Double(part) ?? 0) * factor
+            factor = factor == 1 ? 60 : factor == 60 ? 3_600 : 86_400
+        }
+        return seconds
+    }
+
+    private static func run(_ path: String, _ arguments: [String]) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
 /// Runs the children one after another and writes the Markdown table (no window of its own).
 enum Orchestrator {
     static func run(_ options: Options) -> Int32 {
@@ -509,20 +594,27 @@ enum Orchestrator {
         let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
         var failures = 0
         // The runs: engines take turns within each round, so a slow drift of the machine (heat,
-        // background work) spreads over all of them. With `--separate-screen-pass` the measured
-        // runs go without the screen meter and one more round of every scenario and engine runs
-        // with it (its numbers give the screen updates column).
+        // background work) spreads over all of them, in an order that changes from round to round
+        // (`balancedOrder`): no engine always runs right after the same one (a heavy one, say,
+        // whose huge window the window server is still tearing down). With
+        // `--separate-screen-pass` the measured runs go without the screen meter and one more
+        // round of every scenario and engine runs with it (its numbers give the screen column).
+        var round = 0
+        func rotated() -> [EngineKind] {
+            defer { round += 1 }
+            return balancedOrder(count: options.engines.count, round: round).map { options.engines[$0] }
+        }
         var jobs: [(scenario: ScenarioID, run: Int, engine: EngineKind, screen: Bool, pass: String?)] = []
         for scenario in options.scenarios where !options.onlyTracePass {
             for run in 1...options.runs {
-                for engine in options.engines {
+                for engine in rotated() {
                     jobs.append((scenario, run, engine, options.screenMeter && !options.separateScreenPass, nil))
                 }
             }
         }
         if options.separateScreenPass, options.screenMeter, !options.onlyTracePass {
             for scenario in options.scenarios {
-                for engine in options.engines { jobs.append((scenario, 1, engine, true, "screen")) }
+                for engine in rotated() { jobs.append((scenario, 1, engine, true, "screen")) }
             }
         }
         // `--trace-pass`: one more run of every engine on the key live scenarios, recorded by
@@ -534,7 +626,7 @@ enum Orchestrator {
         if options.tracePass || options.onlyTracePass {
             let key = options.scenarios.filter { $0 == .liveTrades || $0 == .orderBook }
             for scenario in key.isEmpty ? options.scenarios.filter({ !$0.isSort }) : key {
-                for engine in options.engines { jobs.append((scenario, 1, engine, options.screenMeter, "trace")) }
+                for engine in rotated() { jobs.append((scenario, 1, engine, options.screenMeter, "trace")) }
             }
             try? FileManager.default.createDirectory(atPath: traceDirectory, withIntermediateDirectories: true)
         }
@@ -542,13 +634,25 @@ enum Orchestrator {
         var done = 0
         var kernelTracesBefore: [String: Int64] = [:]
         print("Gingham Bench: \(total) runs → \(output)")
+        // The window server's rates with nothing of ours on the screen: after each run the next
+        // waits until it's back near them.
+        let idle = WindowServerSettle.idleRates()
+        print(String(format: "Window server idle: %.0f%% CPU, %.0f ms/s GPU", idle.cpu, idle.gpu))
+        var previous: EngineKind?
         for (scenario, run, engine, screen, pass) in jobs {
                     do {
+                    // After the run before (its process gone, its window torn down): the window
+                    // server settled, at least 3 s, at most 30 s.
+                    let after = previous
+                    previous = engine
+                    let settled = after == nil ? 0 : WindowServerSettle.wait(idle: idle)
                     done += 1
                     print("[\(done)/\(total)] \(scenario.rawValue) · \(engine.title) · \(pass.map { "\($0) pass" } ?? "run \(run)")", terminator: "")
                     fflush(stdout)
                     let process = Process()
                     var childArguments = options.childArguments(scenario: scenario, engine: engine, run: run, output: output, screenMeter: screen, pass: pass)
+                    if let after { childArguments += ["--after", after.rawValue, "--settled", String(format: "%.1f", settled)] }
+                    if settled > 3.5 { print(" (window server settled after \(String(format: "%.1f", settled)) s)", terminator: "") }
                     let tracePath = "\(traceDirectory)/\(scenario.rawValue)-\(engine.rawValue).trace"
                     if pass == "trace" {
                         // A short run, so that the trace stays under 10 seconds: 2 s of warm-up
@@ -649,7 +753,6 @@ enum Orchestrator {
                         print(" — crashed: \(result.note ?? "")")
                     }
                     if process.terminationStatus != 0 { failures += 1 }
-                    Thread.sleep(forTimeInterval: 1)
                     }
         }
         let markdownPath = (output as NSString).deletingPathExtension + ".md"

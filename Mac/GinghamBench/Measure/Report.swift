@@ -104,6 +104,10 @@ nonisolated struct RunResult: Codable, Sendable {
     /// nil: a measured run; "screen": a run of the separate screen-truth pass (only its screen
     /// numbers are used).
     var pass: String?
+    /// The engine of the run just before this one (the order of engines changes from round to
+    /// round), and the seconds waited after it for the window server to settle.
+    var after: String?
+    var settleSeconds: Double?
     /// ok; timeout (no rows within the load timeout, or a sort step too long); stuck (the main
     /// thread didn't come back after the window); invalid (the window was covered or the screen
     /// locked during the run); error.

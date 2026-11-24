@@ -71,6 +71,10 @@ struct Options {
     var onlyTracePass = false
     var keepTraces = false
     var pass: String?
+    /// The engine whose run came just before this one, and how long the window server took to
+    /// settle after it (recorded in the result).
+    var afterEngine: String?
+    var settleSeconds: Double?
     var cycle: Double?
     var quitAfterCycle = false
     var isChild = false
@@ -143,6 +147,8 @@ struct Options {
             case "--only-trace-pass": options.onlyTracePass = true
             case "--keep-traces": options.keepTraces = true
             case "--pass": options.pass = try value(argument)
+            case "--after": options.afterEngine = try value(argument)
+            case "--settled": options.settleSeconds = try number(argument)
             case "--cycle": options.cycle = try number(argument)
             case "--quit": options.quitAfterCycle = true
             case "--screen": options.screenName = try value(argument)

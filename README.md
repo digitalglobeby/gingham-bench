@@ -308,7 +308,11 @@ that ("no rows shown within 30 s"); in `sort-text`, a sort that doesn't reach th
 Each run of an engine is a **new process** of the app: no engine runs after another in the same
 process (no warm caches or leftovers), and a table that hangs can't stop the others. Engines take
 turns within each round of runs, so a slow drift of the machine (heat, background work) spreads
-over all of them. A run makes the scenario's rows (not measured), shows the engine's table in the
+over all of them, in an order that changes from round to round (a balanced Latin square: over the
+rounds every engine runs right after each of the others about equally often, so none always
+follows the same heavy one). After each run the next waits until the window server is back near
+its idle CPU and GPU rates (at least 3 seconds, at most 30), so a run doesn't start while the last
+one's window is still being torn down; each result records the engine before it and the wait. A run makes the scenario's rows (not measured), shows the engine's table in the
 window, waits until the table has its rows, starts the feed, waits the warm-up (3 seconds, 5 for
 Binance) and measures for `--seconds` (10). Everything is recorded with timestamps and
 summarized over that window afterwards; a watchdog thread writes the result if the main thread
