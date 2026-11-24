@@ -14,7 +14,7 @@ think an engine is used wrong, the code that uses it is a few hundred lines in
 faster way and it will be measured.
 
 Gingham comes in as customers get it: the binary package
-`https://github.com/digitalglobeby/Gingham` (`from: "1.1.2"`). It's free for tables of up to
+`https://github.com/digitalglobeby/Gingham` (`from: "1.1.3"`). It's free for tables of up to
 10,000 rows; the bench registers a license key that unlocks every row only for its own bundle
 id (`Shared/BenchKey.swift`), so the scenarios with hundreds of thousands of rows run as
 measured.
@@ -397,7 +397,10 @@ it. Each callback applies the changes that came since the last one (above). Per 
 - **Process CPU** (all threads, 100% is one core), the process's **GPU time** (the GPU driver's
   accumulated time of the process's GPU clients, what Activity Monitor's GPU column shows), the
   **window server's GPU time** above its rate in two seconds before the feed starts (the table
-  shown, nothing changing; it composites every app's layers, so this is Mac-wide), and **the two
+  shown, nothing changing; it composites every app's layers, so this is Mac-wide; that idle rate is
+  shown next to it, per run in the JSON and the log: a high one, or one far from the other runs'
+  means the screen wasn't quiet, and the window server's numbers compare only within a quiet
+  session), and **the two
   together**: the work lands in different places, AppKit's drawing composited under the window
   server, Gingham's GPU work counted as the process's. Only increases between samples count (a GPU client that
   closes takes its time with it). Also the process's **CPU energy** as the kernel accounts it

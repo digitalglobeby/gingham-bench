@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/digitalglobeby/Gingham",
       "state" : {
-        "revision" : "ddef1c54101f0eca18673c09513fa2a34842b25b",
-        "version" : "1.1.2"
+        "revision" : "9adb36c67d60bea376a3212472d506dedd78dd3e",
+        "version" : "1.1.3"
       }
     }
   ],

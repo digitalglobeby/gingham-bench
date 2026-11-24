@@ -183,6 +183,13 @@ nonisolated enum Report {
         return format(middle) + suffix + (low == high ? "" : " (\(low)–\(high))")
     }
 
+    /// The lowest and highest of the values ("—": none).
+    private static func span(_ values: [Double]) -> String {
+        guard let low = values.min(), let high = values.max() else { return "—" }
+        let (a, b) = (Int(low.rounded()), Int(high.rounded()))
+        return a == b ? "\(a)" : "\(a)–\(b)"
+    }
+
     private static func localDate(_ iso: String) -> String {
         guard let date = ISO8601DateFormatter().date(from: iso) else { return String(iso.prefix(10)) }
         return date.formatted(date: .abbreviated, time: .shortened)
@@ -230,7 +237,7 @@ nonisolated enum Report {
                 lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Frames with new data/s (max \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU | GPU, process + window server | CPU energy | Memory | Order | Runs |")
+                lines.append("| Engine | Frames with new data/s (max \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU · idle | GPU, process + window server | CPU energy | Memory | Order | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             var laidOut: [String] = []
@@ -311,7 +318,7 @@ nonisolated enum Report {
                     let screen = screens.isEmpty ? "— (" + (failedScreen.map { "screen run \($0.status): \($0.note ?? "")" } ?? ok.first?.screenMeter ?? "no meter") + ")"
                         : median(screens) + (shares.isEmpty ? "" : ", \(median(shares.map { $0 * 100 }))% changed")
                     let tracedText = slowedByTrace ? "— (the recording slowed the run)" : traced.isEmpty ? "—" : median(traced)
-                    lines.append("| \(title) | \(screen) | \(tracedText) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
+                    lines.append("| \(title) | \(screen) | \(tracedText) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) · idle \(span(numbers.compactMap(\.windowServerGPUBaselineMsPerSecond))) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
                 }
             }
             lines.append("")
@@ -357,7 +364,9 @@ nonisolated enum Report {
                   "Main thread busy: share of time its run loop wasn't waiting. Longest stall: the longest time between two callbacks.",
                   "Callbacks/s: display-link callbacks the main thread got to. CPU: all threads, 100% = one core. GPU: the process's GPU",
                   "time and the window server's above its rate with the table shown and nothing changing (it composites all apps;",
-                  "AppKit's drawing is composited there, Gingham's GPU work counts as the process's), and their sum, ms a second. CPU energy: the process's,",
+                  "AppKit's drawing is composited there, Gingham's GPU work counts as the process's), and their sum, ms a second; idle: the",
+                  "window server's rate with the table shown and nothing changing, which depends on what else the screen shows (a high or",
+                  "very different one means the screen wasn't quiet: compare the window server's numbers only within a quiet session). CPU energy: the process's,",
                   "as the kernel accounts it (task_energy): not its GPU work, not the window server's; not total energy. The",
                   "window server's CPU time isn't measured. Order: the order shown,",
                   "checked against the store after the run. See the README for how each engine is set up.", ""]

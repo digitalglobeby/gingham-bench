@@ -716,10 +716,10 @@ enum Orchestrator {
         }
         guard let numbers = result.numbers else { return result.status }
         let screen = numbers.screenUpdatesPerSecond.map { String(format: "%.0f frames with new data/s, ", $0) } ?? "no screen meter (\(result.screenMeter ?? "?")), "
-        return screen + String(format: "%.0f updates applied/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f more than idle)",
+        return screen + String(format: "%.0f updates applied/s, data age %.0f/%.0f ms, main thread %.0f%% busy, stall %.0f ms, %.0f callbacks/s, %.0f changes/s, CPU %.0f%%, GPU %.1f ms/s (window server %.1f more than its idle %.0f)",
                       numbers.updatesAppliedPerSecond, numbers.dataAgeP50Ms ?? .nan, numbers.dataAgeP99Ms ?? .nan, numbers.busyShare * 100,
                       numbers.longestStallMs, numbers.callbacksPerSecond, numbers.changesPerSecond, numbers.cpuPercent ?? 0, numbers.gpuMsPerSecond ?? 0,
-                      numbers.windowServerGPUMsPerSecond ?? 0)
+                      numbers.windowServerGPUMsPerSecond ?? 0, numbers.windowServerGPUBaselineMsPerSecond ?? 0)
             + (result.orderCheck.map { $0 == "ok" ? "" : ", ORDER: \($0)" } ?? "")
             + (result.renderedRows.map { ", \($0) rows × \(result.renderedColumns ?? 0) columns laid out" } ?? "")
             + (result.onScreen.map { " (\($0) points of the window on the screen)" } ?? "")
