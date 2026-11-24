@@ -15,7 +15,7 @@ packages:
   # Only the public binary package: what any app links.
   Gingham:
     url: https://github.com/digitalglobeby/Gingham
-    from: 1.1.3
+    from: 1.1.4
 settings:
   base:
     SWIFT_VERSION: "6.0"

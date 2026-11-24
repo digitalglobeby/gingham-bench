@@ -4,7 +4,7 @@
 # results/<date>.jsonl and .md, so each step has its own files); everything is logged to
 # results/session-<date>.log.
 #
-#   Scripts/next-session.sh                 steps 1–3 on the MacBook's display (about 3 h 30 min)
+#   Scripts/next-session.sh                 steps 1–3 on the MacBook's display (about 4 hours)
 #   Scripts/next-session.sh 2               one step (1, 2 or 3)
 #   Scripts/next-session.sh 4k NAME WxH     later, on its own: the 4K monitor (60 Hz), NAME a part of its
 #                                           name, WxH its "looks like" size less about 140 × 140 points
@@ -39,7 +39,8 @@
 #      applied, main thread busy and data age. ~50 min (SwiftUI's runs mostly run out their timeouts).
 #   4k. The 4K monitor at 60 Hz, later: the four scenarios in a window filling it (~45 min), then
 #      3840 × 2160 points on it (~45 min). Numbers at 60 Hz aren't comparable with 120 Hz ones.
-# Plus the waits for the Mac to settle before each step (a few minutes each).
+# Plus the waits for the Mac to settle before each step (a few minutes each), and about 5 s after
+# every run for the window server to settle (the app waits; some 20 minutes over the three steps).
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p results build

@@ -14,7 +14,7 @@ think an engine is used wrong, the code that uses it is a few hundred lines in
 faster way and it will be measured.
 
 Gingham comes in as customers get it: the binary package
-`https://github.com/digitalglobeby/Gingham` (`from: "1.1.3"`). It's free for tables of up to
+`https://github.com/digitalglobeby/Gingham` (`from: "1.1.4"`). It's free for tables of up to
 10,000 rows; the bench registers a license key that unlocks every row only for its own bundle
 id (`Shared/BenchKey.swift`), so the scenarios with hundreds of thousands of rows run as
 measured.
