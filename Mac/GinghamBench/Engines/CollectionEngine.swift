@@ -10,7 +10,9 @@
 //    index, nothing is cached or measured, so a change in the number of rows costs nothing per
 //    row (NSCollectionViewFlowLayout prepares every item's attributes).
 //  - Items are reused (`makeItem(withIdentifier:for:)`); their labels are plain NSTextFields
-//    with frames (no Auto Layout) that set their text only when it changes (`TunedCell`).
+//    with frames (no Auto Layout) that set their text only when it changes (`TunedCell`). Only
+//    the columns in view have their labels shown and filled, as NSTableView makes cells only
+//    for the columns in its visible rect; the others are hidden until scrolled into view.
 //  - Updates: the items in view whose text changed are updated in place (`item(at:)`), only the
 //    changed rows and columns; a change in the number of rows is one batch of item inserts or
 //    deletes at the end.
@@ -64,6 +66,9 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     private let layout = RowsLayout()
     private let rows = TunedRows()
     private var depth = 0
+    /// The columns in view (their labels shown and filled), and where each column starts.
+    private var shownColumns = 0..<0
+    private var columnStarts: [CGFloat] = []
     private static let itemID = NSUserInterfaceItemIdentifier("row")
     var view: NSView { container }
 
@@ -92,6 +97,14 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
                 x += spec.pitch
                 view.addSubview(cell)
                 return cell
+            }
+        }
+
+        /// Only the columns in view show their labels.
+        func show(columns: Range<Int>) {
+            for (index, cell) in cells.enumerated() {
+                let hidden = !columns.contains(index)
+                if cell.isHidden != hidden { cell.isHidden = hidden }
             }
         }
 
@@ -130,11 +143,51 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
             scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
+        // The columns in view follow the clip view's bounds (scrolling sideways, resizing).
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        scrollView.contentView.postsFrameChangedNotifications = true
+        for name in [NSView.boundsDidChangeNotification, NSView.frameDidChangeNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: scrollView.contentView, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateShownColumns() }
+            }
+        }
+    }
+
+    /// The columns whose place meets the clip view's bounds.
+    private func columnsInView() -> Range<Int> {
+        guard let source = rows.source else { return 0..<0 }
+        let rect = scrollView.contentView.bounds
+        let columns = source.columns
+        var first = columns.count, last = 0
+        for (index, start) in columnStarts.enumerated() where start < rect.maxX && start + columns[index].pitch > rect.minX {
+            first = min(first, index)
+            last = max(last, index + 1)
+        }
+        return first < last ? first..<last : 0..<0
+    }
+
+    /// Columns that came into view get their labels shown and filled in the items in view.
+    private func updateShownColumns() {
+        let columns = columnsInView()
+        guard columns != shownColumns, let source = rows.source else { return }
+        let added = columns.filter { !shownColumns.contains($0) }
+        shownColumns = columns
+        for path in collectionView.indexPathsForVisibleItems() {
+            guard let item = collectionView.item(at: path) as? Item else { continue }
+            item.show(columns: columns)
+            let row = rows.sourceRow(atDisplay: path.item)
+            guard row >= 0, row < source.rowCount else { continue }
+            for column in added where column < item.cells.count {
+                item.cells[column].show(BenchFormat.text(source, row: row, column: column))
+            }
+        }
     }
 
     func load(_ source: BenchSource, sort: [SortSpec]) {
         rows.load(source, sort: sort)
         layout.rowWidth = source.columns.reduce(0) { $0 + $1.pitch }
+        columnStarts = source.columns.indices.map { index in source.columns[..<index].reduce(0) { $0 + $1.pitch } }
+        shownColumns = columnsInView()
         header.subviews.forEach { $0.removeFromSuperview() }
         var x: CGFloat = 0
         for spec in source.columns {
@@ -174,7 +227,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         let all = rows.allColumns
         for refresh in ended.refreshes where refresh.display < shownCount {
             guard let item = collectionView.item(at: IndexPath(item: refresh.display, section: 0)) as? Item else { continue }
-            for column in refresh.allColumns ? all : ended.columns where column < item.cells.count {
+            for column in refresh.allColumns ? all : ended.columns where column < item.cells.count && shownColumns.contains(column) {
                 item.cells[column].show(BenchFormat.text(source, row: refresh.row, column: column))
             }
         }
@@ -203,10 +256,10 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
 
     /// The items realized (NSCollectionView makes items for what its visible rect shows) and the
-    /// labels of one: every column's.
+    /// labels shown in one (the columns in view).
     var rendered: (rows: Int, columns: Int)? {
         let items = collectionView.indexPathsForVisibleItems()
-        let labels = items.first.flatMap { (collectionView.item(at: $0) as? Item)?.cells.count } ?? 0
+        let labels = items.first.flatMap { (collectionView.item(at: $0) as? Item)?.cells.filter { !$0.isHidden }.count } ?? 0
         return (items.count, labels)
     }
 
@@ -214,7 +267,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         var texts: [(display: Int, column: Int, text: String)] = []
         for path in collectionView.indexPathsForVisibleItems() {
             guard let item = collectionView.item(at: path) as? Item else { continue }
-            for (column, cell) in item.cells.enumerated() { texts.append((path.item, column, cell.stringValue)) }
+            for (column, cell) in item.cells.enumerated() where !cell.isHidden { texts.append((path.item, column, cell.stringValue)) }
         }
         return texts
     }
@@ -234,9 +287,11 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         guard let source = rows.source else { return item }
         item.prepare(columns: source.columns)
         item.stripe(indexPath.item % 2 == 1)
+        if shownColumns.isEmpty { shownColumns = columnsInView() }
+        item.show(columns: shownColumns)
         let row = rows.sourceRow(atDisplay: indexPath.item)
-        for (column, cell) in item.cells.enumerated() {
-            cell.show(row >= 0 && row < source.rowCount ? BenchFormat.text(source, row: row, column: column) : "")
+        for column in shownColumns where column < item.cells.count {
+            item.cells[column].show(row >= 0 && row < source.rowCount ? BenchFormat.text(source, row: row, column: column) : "")
         }
         return item
     }
