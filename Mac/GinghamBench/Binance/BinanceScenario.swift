@@ -242,7 +242,7 @@ final class BinanceScenario: Scenario {
     private var books: [String: BinanceBookSync] = [:]
     private var fetchingBooks: Set<String> = []
     private var snapshotFetches = 0
-    private var lastError: String?
+    private var lastError: Error?
     private var isStopped = false
     static let bookSymbols = ["btcusdt", "ethusdt", "solusdt", "bnbusdt", "xrpusdt", "dogeusdt"]
     var source: BenchSource { store }
@@ -285,7 +285,7 @@ final class BinanceScenario: Scenario {
 
     private func fetch(_ url: URL?) async throws -> Data {
         guard let url else { throw ScenarioError("bad URL") }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await Self.get(url)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             let retry = http.value(forHTTPHeaderField: "Retry-After").map { " (retry after \($0) s)" } ?? ""
             throw ScenarioError("\(url.host ?? "")\(url.path): HTTP \(http.statusCode)\(retry) \(String(decoding: data.prefix(200), as: UTF8.self))")
@@ -301,7 +301,7 @@ final class BinanceScenario: Scenario {
     private func waitForRequestWeight(_ needed: Int) async throws {
         guard let url = restURL("/api/v3/ping") else { return }
         for _ in 0..<4 {
-            let (_, response) = try await URLSession.shared.data(from: url)
+            let (_, response) = try await Self.get(url)
             guard let http = response as? HTTPURLResponse else { return }
             if http.statusCode == 418 || http.statusCode == 429 {
                 let retry = Double(http.value(forHTTPHeaderField: "Retry-After") ?? "") ?? 60
@@ -313,6 +313,45 @@ final class BinanceScenario: Scenario {
             if used + needed <= 4_800 { return }
             let wait = 61 - Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
             try await Task.sleep(for: .seconds(wait))
+        }
+    }
+
+    /// A GET with a 15-second timeout, tried 4 times (2, 5 and 10 seconds apart) when the network
+    /// fails or Binance answers 5xx; after that a network failure is a `NetworkError` (the run is
+    /// recorded as the network's failure, not the engine's).
+    nonisolated static func get(_ url: URL) async throws -> (Data, URLResponse) {
+        let waits: [Double] = [2, 5, 10]
+        var attempt = 0
+        while true {
+            do {
+                let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 15))
+                if let http = response as? HTTPURLResponse, (500...599).contains(http.statusCode), attempt < waits.count {
+                    try await Task.sleep(for: .seconds(waits[attempt]))
+                    attempt += 1
+                    continue
+                }
+                return (data, response)
+            } catch let error as URLError {
+                guard let reason = networkReason(error) else { throw error }
+                guard attempt < waits.count else {
+                    throw NetworkError(reason: reason, request: "\(url.host ?? "")\(url.path), \(attempt + 1) tries")
+                }
+                try await Task.sleep(for: .seconds(waits[attempt]))
+                attempt += 1
+            }
+        }
+    }
+
+    /// What went wrong when the network is to blame (nil: something else).
+    nonisolated private static func networkReason(_ error: URLError) -> String? {
+        switch error.code {
+        case .timedOut: "timed out"
+        case .notConnectedToInternet: "no connection"
+        case .networkConnectionLost: "connection lost"
+        case .cannotFindHost, .dnsLookupFailed: "host not found"
+        case .cannotConnectToHost: "can't connect"
+        case .secureConnectionFailed: "secure connection failed"
+        default: nil
         }
     }
 
@@ -351,13 +390,13 @@ final class BinanceScenario: Scenario {
             for symbol in Self.bookSymbols { fetchBook(symbol.uppercased()) }
             let deadline = Date().addingTimeInterval(45)
             while !books.values.allSatisfy(\.isSynced) {
-                if let lastError { throw ScenarioError(lastError) }
+                if let lastError { throw lastError }
                 guard Date() < deadline else { throw ScenarioError("the order books didn't load in 45 s") }
                 try await pump(for: 0.1)
             }
             try await pump(for: 1)
         }
-        if store.rowCount == 0 { throw ScenarioError(lastError ?? "no rows from Binance") }
+        if store.rowCount == 0 { throw lastError ?? ScenarioError("no rows from Binance") }
     }
 
     /// Applies what comes (no engine yet) for a while.
@@ -399,7 +438,11 @@ final class BinanceScenario: Scenario {
                 }
             } catch {
                 fetchingBooks.remove(symbol)
-                lastError = "\(symbol) snapshot: \(error.localizedDescription)"
+                if let network = error as? NetworkError {
+                    lastError = NetworkError(reason: network.reason, request: "\(symbol) snapshot, \(network.request)")
+                } else {
+                    lastError = ScenarioError("\(symbol) snapshot: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -467,9 +510,9 @@ final class BinanceScenario: Scenario {
             case .reply:
                 break
             case .error(let text):
-                lastError = "Binance: \(text)"
+                lastError = ScenarioError("Binance: \(text)")
             case .closed(let reason):
-                lastError = "connection closed: \(reason)"
+                lastError = ScenarioError("connection closed: \(reason)")
             }
         }
         store.flushUpdates()

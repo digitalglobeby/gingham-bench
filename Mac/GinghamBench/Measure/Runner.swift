@@ -165,6 +165,10 @@ final class ChildRun {
         Task {
             do {
                 try await scenario.prepare()
+            } catch let error as NetworkError {
+                // The network's failure, not the engine's: to be run again.
+                finish(status: "network", note: error.localizedDescription)
+                return
             } catch {
                 finish(status: "error", note: error.localizedDescription)
                 return

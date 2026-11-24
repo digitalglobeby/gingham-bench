@@ -21,6 +21,8 @@
 # 45 minutes, then it goes on and says so); the trace pass deletes Instruments' raw kernel traces
 # (instruments*.ktrace in the temporary folder) after every traced run, and leftovers are deleted
 # after each step; under 40 GB free the session stops (checked before each step and every 30 s).
+# Scenarios whose runs failed on the network (Binance didn't answer after 4 tries: status
+# "network") are run once more at the end of the session, at the window size they had.
 #
 # Estimates from the 2026-11-23 session (84 minutes for the default set, 37 for three scenarios at
 # 2040 × 1080, each with its screen and trace passes):
@@ -101,14 +103,45 @@ watch_disk() {
   done
 }
 
+# Scenarios to run again at the end ("scenarios|arguments" lines), for runs the network failed.
+AGAIN=()
+
 run() {
   check_disk
   wait_settled
   say "▸ Scripts/run-all.sh $*"
-  local exit_status=0
+  local exit_status=0 marker=build/session-step-marker
+  touch $marker
   Scripts/run-all.sh "$@" || exit_status=$?
   clean_kernel_traces
   say "  done (exit $exit_status), $(free_gb) GB free"
+  # The step's results: scenarios with runs the network failed.
+  local failed=$(find results -maxdepth 1 -name '*.jsonl' -newer $marker -exec python3 -I -c '
+import json, sys
+names = set()
+for path in sys.argv[1:]:
+    for line in open(path):
+        try: run = json.loads(line)
+        except ValueError: continue
+        if run.get("status") == "network": names.add(run["scenario"])
+print(",".join(sorted(names)))' {} +)
+  if [[ -n "$failed" ]]; then
+    say "  the network failed runs of $failed: they run again at the end"
+    local window=() i
+    for (( i = 1; i <= $#; i++ )); do [[ "${@[i]}" == --window || "${@[i]}" == --screen ]] && window+=("${@[i]}" "${@[i+1]}"); done
+    AGAIN+=("$failed|${window[*]}")
+  fi
+}
+
+# Once: a scenario the network fails again stays failed, for a rerun by hand.
+run_again() {
+  local entry pending=("${AGAIN[@]}")
+  AGAIN=()
+  for entry in "${pending[@]}"; do
+    local scenarios=${entry%%|*} rest=${entry#*|}
+    say "▸ again, the network having failed them: $scenarios"
+    run --scenario $scenarios ${=rest}
+  done
 }
 
 step() {
@@ -147,4 +180,5 @@ else
   step 2
   step 3
 fi
+run_again
 say "session done: today's results/*.md"

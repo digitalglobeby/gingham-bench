@@ -289,7 +289,11 @@ nonisolated enum Report {
                     guard !numbers.isEmpty else {
                         // (The measured runs failed, or only the screen or trace pass ran: what there is.)
                         let screens = screenRuns.compactMap(\.numbers?.screenUpdatesPerSecond)
-                        var first = failed.first.map { "\($0.status) (\(failed.count)/\(runs.count))" } ?? "—"
+                        var first = failed.first.map { run in
+                            // (The network's failures: what went wrong, the engine had no say.)
+                            let status = run.status == "network" ? "network: " + (run.note?.split(separator: ":").first.map(String.init) ?? "failed") : run.status
+                            return "\(status) (\(failed.count)/\(runs.count))"
+                        } ?? "—"
                         if !screens.isEmpty { first += "; screen pass \(median(screens))" }
                         lines.append("| \(title) | \(first) | \(traced.isEmpty ? "—" : median(traced)) | | | | | | | | | | | | | | \(runs.count) |")
                         continue
@@ -332,6 +336,12 @@ nonisolated enum Report {
                           "capture doesn't keep up, so the frames with new data column isn't reliable here. Read Gingham's presented frames, the",
                           "updates applied (the most any engine could show), main thread busy and data age instead.", ""]
             }
+        }
+        let network = results.filter { $0.status == "network" }
+        if !network.isEmpty {
+            let scenarios = Set(network.map(\.scenario)).sorted().joined(separator: ", ")
+            lines += ["⚠︎ \(network.count) runs failed on the network (\(scenarios): \(network.first?.note ?? "")), after 4 tries of each",
+                      "request: not the engines' results. Run those scenarios again.", ""]
         }
         let hot = results.compactMap(\.numbers?.thermalState).filter { $0 != "nominal" && $0 != "fair" }
         if !hot.isEmpty { lines += ["⚠︎ \(hot.count) runs reached the thermal state \(Set(hot).sorted().joined(separator: ", ")): compare those with care.", ""] }

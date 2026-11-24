@@ -95,3 +95,13 @@ struct ScenarioError: LocalizedError {
     let errorDescription: String?
     init(_ text: String) { errorDescription = text }
 }
+
+/// A request the network didn't get through (timed out, no connection), after its retries: not
+/// the engine's failure. The run is recorded with the status "network", to be run again.
+nonisolated struct NetworkError: LocalizedError {
+    /// "timed out", "no connection", …
+    let reason: String
+    /// What was asked for, and how many times.
+    let request: String
+    var errorDescription: String? { "\(reason): \(request)" }
+}
