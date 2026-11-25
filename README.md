@@ -240,8 +240,8 @@ What an AppKit expert would write for live data, every choice aimed at doing les
   than one, 8 threads slower than one). The keys of a static table's last 4 sorted columns (each
   row's key and the distinct texts' ranks) are kept, as an expert app keeps what costs most and
   stays right while the rows don't change: sorting by a column again only sorts the rows by them.
-  The finished orders aren't kept. The other tuned engines (cell-based, NSCollectionView, SwiftUI
-  tuned) sort the same way; the typical NSTableView and SwiftUI Table sort from scratch every time.
+  The finished orders aren't kept. The other tuned engines (cell-based, NSCollectionView, both
+  tuned SwiftUI Tables) sort the same way; the typical NSTableView and SwiftUI Table sort from scratch every time.
 
 Where its main thread goes, from a profile (`sample`, 4 seconds of `trade-feed`): Core Animation's
 commit 47%, inside it 44% displaying layers, of which a quarter of the main thread is AppKit drawing
@@ -296,9 +296,10 @@ Its rows' height is SwiftUI's own (there's no API for it on the Mac).
 Its table style is `.inset(alternatesRowBackgrounds: true)`, the closest to the others' striped
 full-width look that SwiftUI offers on the Mac.
 
-### SwiftUI Table, tuned
+### SwiftUI Table, tuned (rows rebuilt on reorder)
 
-What an expert would do to give SwiftUI less to compare and redraw:
+What an expert would do to give SwiftUI less to compare and redraw, keeping each row's identity
+(the record's), so that selection would follow records:
 
 - Rows are `@Observable` objects with a stored property per column, and each cell is a small view
   that reads only its own property: a changed value updates that cell alone, with no array change
@@ -316,9 +317,29 @@ What an expert would do to give SwiftUI less to compare and redraw:
   (3–4 updates a second). `--swiftui-diff-moves` compares the two. A new `.id` also resets the
   table's scrolling and selection, which a real app would have to keep itself (the bench neither
   scrolls nor selects).
+
+So on sorted live data this engine rebuilds its rows at every reorder, while the tuned AppKit
+engines rewrite the places in view: not the same technique, which the next engine evens out.
 [`SwiftUITunedEngine.swift`](Mac/GinghamBench/Engines/SwiftUITunedEngine.swift)
 
-### Both SwiftUI engines
+### SwiftUI Table, slots
+
+The tuned AppKit engines' technique in SwiftUI (added after a review pointed out the difference;
+in the results from the next session on): rows identified by their place, not their record. The
+row objects are slots like the tuned engine's (an `@Observable` object with a property per column,
+each cell reading only its own), slot n always the n-th row shown, never moved. A batch writes new
+values into the slots whose content changed: every column of a slot whose place shows another
+record now (a row moved in the sorted order, a removed row's place taken by the last row), the
+changed columns of a slot whose record stayed; a value only when it differs. The rows array changes
+only when the number of rows does, once a batch, so there are no moves for SwiftUI to work out and
+no table to rebuild. The order is the tuned AppKit engines' (incremental, a static table sorted in
+the background), with every place counted as in view (SwiftUI asks only for the rows it shows, but
+a slot it shows later must already have its values). What it gives up: selection and row animations
+follow places, not records; and after a static table's sort every slot gets new values. The
+order check after each run also reads the text of the slots in view against the store.
+[`SwiftUISlotsEngine.swift`](Mac/GinghamBench/Engines/SwiftUISlotsEngine.swift)
+
+### All SwiftUI engines
 
 Whether the table has its rows is read from the `NSTableView` SwiftUI uses inside the hosting
 view. An engine that shows no rows within `--load-timeout` seconds (30) is reported as exactly

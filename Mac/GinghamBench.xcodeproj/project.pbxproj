@@ -25,6 +25,7 @@
 		8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A809119AA85FC36961D2BF4 /* SortScenario.swift */; };
 		92879D9EC5D0B2B9B8330059 /* BinanceBookSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A441FB83BEF1D0492D93A5D /* BinanceBookSync.swift */; };
 		938DA0E7929E99F539937F80 /* CrashCatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F55DC968127DA0B506B841 /* CrashCatcher.swift */; };
+		94491254D4448718F931BCE1 /* SwiftUISlotsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AE46DD0FF1C8C55FA42D7 /* SwiftUISlotsEngine.swift */; };
 		9DD9017F9C9F25CE64590593 /* GinghamEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2026341A9B89FB5FE16CF1 /* GinghamEngine.swift */; };
 		9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04E10F329FCC5A688F002172 /* NSTableEngine.swift */; };
 		A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */; };
@@ -72,6 +73,7 @@
 		C8A7551C8A49C6052A421EE4 /* TunedRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunedRows.swift; sourceTree = "<group>"; };
 		DA2026341A9B89FB5FE16CF1 /* GinghamEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GinghamEngine.swift; sourceTree = "<group>"; };
 		E4E141FD4035276654B386B9 /* FeedGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedGenerator.swift; sourceTree = "<group>"; };
+		E81AE46DD0FF1C8C55FA42D7 /* SwiftUISlotsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUISlotsEngine.swift; sourceTree = "<group>"; };
 		E82D253D06EE35D0B84A56A2 /* Columns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Columns.swift; sourceTree = "<group>"; };
 		EB417713D2BF803522623279 /* TraceFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceFrames.swift; sourceTree = "<group>"; };
 		EC00F04B7E7D1D45DA1B08D0 /* CollectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionEngine.swift; sourceTree = "<group>"; };
@@ -160,6 +162,7 @@
 				04E10F329FCC5A688F002172 /* NSTableEngine.swift */,
 				7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */,
 				6235676D51BB0A263D0F5899 /* SwiftUIEngine.swift */,
+				E81AE46DD0FF1C8C55FA42D7 /* SwiftUISlotsEngine.swift */,
 				5C55F6B6DA9FC9AD0409FD08 /* SwiftUITunedEngine.swift */,
 				C8A7551C8A49C6052A421EE4 /* TunedRows.swift */,
 			);
@@ -296,6 +299,7 @@
 				B136A1C5B62DB5234195A686 /* SelfTest.swift in Sources */,
 				8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */,
 				50C7F18539AF31AA97AE9C61 /* SwiftUIEngine.swift in Sources */,
+				94491254D4448718F931BCE1 /* SwiftUISlotsEngine.swift in Sources */,
 				B0BCA84C18CF9144672C3C95 /* SwiftUITunedEngine.swift in Sources */,
 				48CF500A73F1E10AB7197AD2 /* SyntheticScenario.swift in Sources */,
 				D6631478D8C1D90F22984E4A /* TraceFrames.swift in Sources */,

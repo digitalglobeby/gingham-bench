@@ -23,6 +23,7 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
     case collection
     case swiftui
     case swiftuiTuned = "swiftui-tuned"
+    case swiftuiSlots = "swiftui-slots"
 
     var title: String {
         switch self {
@@ -33,6 +34,7 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .collection: "NSCollectionView"
         case .swiftui: "SwiftUI Table"
         case .swiftuiTuned: "SwiftUI Table, tuned"
+        case .swiftuiSlots: "SwiftUI Table, slots"
         }
     }
 
@@ -45,7 +47,8 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .nstableCells: "NSCell-based, changed cells redrawn, incremental sort"
         case .collection: "custom row layout, incremental sort, in-place item updates"
         case .swiftui: "@Observable rows, sortOrder binding"
-        case .swiftuiTuned: "@Observable row objects, static columns, incremental sort"
+        case .swiftuiTuned: "@Observable row objects, static columns, incremental sort, rows rebuilt on reorder"
+        case .swiftuiSlots: "rows identified by place, values written into them, incremental sort"
         }
     }
 
@@ -58,6 +61,7 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .collection: CollectionEngine()
         case .swiftui: SwiftUIEngine()
         case .swiftuiTuned: SwiftUITunedEngine()
+        case .swiftuiSlots: SwiftUISlotsEngine()
         }
     }
 }

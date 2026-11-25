@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "results"
-ENGINES = ["gingham", "nstable", "nstable-tuned", "nstable-cells", "collection", "swiftui", "swiftui-tuned"]
+ENGINES = ["gingham", "nstable", "nstable-tuned", "nstable-cells", "collection", "swiftui", "swiftui-tuned", "swiftui-slots"]
 LIVE = [("live-trades", "Live trades"), ("wide-trades", "Wide live trades"),
         ("order-book", "Order book"), ("trade-feed", "Trade feed")]
 
@@ -142,9 +142,15 @@ def sort_cell(name, scenario, engine):
     return f"{seconds(first)} · {seconds(again)} · {stall}"
 
 
+def has_runs(name, engine):
+    return any(r["engine"] == engine for r in runs(name))
+
+
 def sort_table(name):
     lines = ["| Engine | By pair | By account |", "| --- | --- | --- |"]
     for engine in ENGINES:
+        if not has_runs(name, engine):
+            continue
         lines.append(f"| {title(engine, name)} | {sort_cell(name, 'sort-text', engine)} | {sort_cell(name, 'sort-text-account', engine)} |")
     return lines
 
@@ -152,6 +158,8 @@ def sort_table(name):
 def binance_table(name):
     lines = ["| Engine | Tickers | Order books |", "| --- | --- | --- |"]
     for engine in ENGINES:
+        if not has_runs(name, engine):
+            continue
         lines.append(f"| {title(engine, name)} | {cell(name, 'binance-tickers', engine, 'screen')} | "
                      f"{cell(name, 'binance-books', engine, 'applied')} |")
     return lines

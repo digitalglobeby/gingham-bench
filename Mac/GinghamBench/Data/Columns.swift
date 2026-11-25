@@ -106,6 +106,16 @@ enum BenchFormat {
         }
     }
 
+    /// The text a SwiftUI cell shows for its value (`SwiftUICellView`).
+    static func text(of value: SwiftUICell, spec: ColumnSpec) -> String {
+        switch (value, spec.kind) {
+        case (.text(let text), _): return text
+        case (.number(let number), .percent): return percent(number, digits: spec.digits)
+        case (.number(let number), .time): return time(microseconds: number)
+        case (.number(let number), _): return number.isNaN ? "" : self.number(number, digits: spec.digits)
+        }
+    }
+
     /// A cell's text as the tuned engines make it: the same text, numbers written by hand
     /// (`FastFormat`) instead of through Foundation's format styles, as an expert's app does for a
     /// table whose values change thousands of times a second.

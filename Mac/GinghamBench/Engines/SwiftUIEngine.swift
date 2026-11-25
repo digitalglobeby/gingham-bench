@@ -255,7 +255,8 @@ final class SwiftUIEngine: Engine {
         return (innerTable?.numberOfRows ?? 0) > 0 || source?.rowCount == 0
     }
 
-    private static func findTable(in view: NSView) -> NSTableView? {
+    /// The NSTableView SwiftUI's Table is made of, inside a hosting view.
+    static func findTable(in view: NSView) -> NSTableView? {
         if let table = view as? NSTableView { return table }
         for subview in view.subviews {
             if let table = findTable(in: subview) { return table }
