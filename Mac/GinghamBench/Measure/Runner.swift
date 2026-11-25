@@ -304,8 +304,8 @@ final class ChildRun {
             checkedFrames += 1
         }
         // Everything that came since the last update, applied at once: at every callback, or
-        // with `--update-rate` at that rate.
-        if pacer?.isDue(now, refreshRate: meter.refreshRate) ?? true {
+        // with `--update-rate` at that rate (the scroll scenario's steps aren't paced).
+        if scenarioID.isScroll || pacer?.isDue(now, refreshRate: meter.refreshRate) ?? true {
             meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
         }
         if let window, now >= window.end, !verifying { finishMeasured(window) }
@@ -492,7 +492,7 @@ final class ChildRun {
         result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
         result.loadSeconds = loadedAt.map { $0 - loadStart }
         result.sorts = sorts
-        result.orderCheck = isInFinderOrder(engine, scenario: scenario) ? "ok" : "not in Finder's order"
+        result.orderCheck = isInOrder(engine, scenario: scenario) ? "ok" : scenario.isNumeric ? "not in order" : "not in Finder's order"
         let interruptions = meter.data.interruptions(in: (loadedAt ?? 0)...CACurrentMediaTime())
         if let first = interruptions.first {
             result.status = "invalid"
@@ -501,9 +501,20 @@ final class ChildRun {
         write(result)
     }
 
-    /// Every row shown, in Finder's order of the sorted column (ties in any order).
-    private func isInFinderOrder(_ engine: Engine, scenario: SortScenario) -> Bool {
+    /// Every row shown, in the sorted column's order (ties in any order): text in Finder's order,
+    /// numbers by value.
+    private func isInOrder(_ engine: Engine, scenario: SortScenario) -> Bool {
         let source = scenario.source
+        if scenario.isNumeric {
+            var previous = -Double.infinity
+            for index in 0..<source.rowCount {
+                guard let row = engine.sourceRow(atDisplayIndex: index), row < source.rowCount else { return false }
+                let value = source.number(row, scenario.sortColumn)
+                if value < previous { return false }
+                previous = value
+            }
+            return true
+        }
         var previous: String?
         for index in 0..<source.rowCount {
             guard let row = engine.sourceRow(atDisplayIndex: index), row < source.rowCount else { return false }

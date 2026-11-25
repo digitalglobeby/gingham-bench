@@ -52,7 +52,7 @@ and, in window mode, `--show order-book/collection` and `--cycle 7` (switches en
 run everything:
 
 ```sh
-Scripts/run-all.sh                            # 8 scenarios × 7 engines × 3 runs of 10 s + a screen pass, about 90 minutes
+Scripts/run-all.sh                            # 11 scenarios × 8 engines × 3 runs of 10 s + a screen pass, about 2½ hours
 Scripts/run-all.sh --scenario live-trades     # any of the app's arguments
 ```
 
@@ -71,10 +71,13 @@ spec the project is generated from; the generated project is committed, so Xcode
 | `wide-trades` | 20,000 trades, 24 columns | ~44,800 a second | by amount, descending | generated, fixed seed |
 | `order-book` | 200,000 orders, 8 columns | ~243,500 a second (incl. 50,000 inserts and 50,000 removals) | as they come | generated, fixed seed |
 | `trade-feed` | 1,000,000 instruments, 23 columns | ~300,000 a second (incl. 1,000 inserts and 1,000 removals) | as they come | generated, fixed seed |
+| `quiet-table` | 5,000 trades, 8 columns | 10 a second | by amount, descending | generated, fixed seed |
+| `scroll` | 100,000 trades, 8 columns | none: scrolled down at 200 rows a second | as they come | generated, fixed seed |
 | `binance-tickers` | ~3,100 Binance pairs, 14 columns | what the market does (a few thousand a second) | by trades, descending | live, Binance's public streams |
 | `binance-books` | ~50,000–58,000 order book levels of 6 pairs, 6 columns | what the market does | by pair, then price | live, Binance's public streams |
 | `sort-text` | 1,000,000 trades, 8 columns | none | sorted on request by pair | generated, fixed seed |
 | `sort-text-account` | the same | none | sorted on request by account | generated, fixed seed |
+| `sort-number` | the same | none | sorted on request by amount (a number) | generated, fixed seed |
 
 **Generated data** is made in the app, on a thread of its own, from a fixed seed: the same rows
 and the same stream of changes on every run, every engine and every Mac. The generator ticks more
@@ -111,6 +114,18 @@ screen refresh the main thread applies everything that came since the last one, 
 - Zipf rank = row index: **the rows in view are the busiest rows**, by design. It is the hardest
   case for every engine (a table scrolled elsewhere would see fewer changes) and the one a trading
   screen shows.
+- `quiet-table`: the other end, a business table at a human rate: 5,000 trades (the live trades'
+  generator and columns), 10 of them changing a second, sorted by amount. Every engine should keep
+  up; what it shows is what each costs when there's little to do (main thread, CPU, power).
+- `scroll`: the commonest use of a table, with nothing changing: 100,000 trades (the sort
+  scenarios' rows) scrolled down at a steady 200 rows a second for the warm-up and the measured
+  window. Every display-link callback moves the table to where that speed puts it at that time (a
+  late callback moves it further, as under a finger; `--update-rate` doesn't pace it), each engine
+  by its own means of scrolling (the clip view of AppKit's scroll views, the one inside SwiftUI's
+  Table, Gingham's `scroll(to:)`) and by its own row height (SwiftUI's taller rows move faster in
+  points, the same rows a second). An "update applied" is a step of the scroll; there's no data
+  age. After the run the view-based tables' cells in view are checked against the store, as after
+  the live runs.
 
 **Binance** (`binance-tickers`, `binance-books`) is a live market, no account or key needed:
 the 24-hour tickers of every pair (`!ticker_1d@arr`) and every pair's best bid and ask
@@ -129,15 +144,18 @@ is tried 4 times when the network fails; a run that still gets no answer is repo
 network's failure ("network: timed out"), not the engine's, and its scenario is to be run again. Where
 `binance.com` is closed, use `--binance-domain binance.us`.
 
-**`sort-text`** and **`sort-text-account`** are a static table of 1,000,000 trades, sorted by a
-text column as a click on its header sorts it: by pair (about 500 distinct pairs, the busiest far
+**`sort-text`**, **`sort-text-account`** and **`sort-number`** are a static table of 1,000,000
+trades, sorted by a column as a click on its header sorts it: by pair (about 500 distinct pairs, the busiest far
 more frequent, as in the first measurement) or by account (nearly every row a different name with
-a number, like "Zürich Partners 48213"). Each run's process sorts three times, each from the
-unsorted order: by its column (the first sort in the process, cold), by the other text column, by
-its column again (a repeated sort, which what a table or app kept from the first may speed up:
+a number, like "Zürich Partners 48213"), or by amount, a number (the commonest sort of a business table, and
+the one where the apps' own sorts have the least to do: a parallel sort of numbers, no text to
+compare). Each run's process sorts three times, each from the
+unsorted order: by its column (the first sort in the process, cold), by the other column (the
+other text column; after amount, price), by its column again (a repeated sort, which what a table or app kept from the first may speed up:
 the tuned engines keep each sorted column's keys, below); the results show the three apart. Text is
 sorted in Finder's order (`localizedStandardCompare`: numbers by value, case and accents as
-Finder does), and each run checks that the order shown is Finder's all the way down.
+Finder does), numbers by value, and each run checks that the order shown is the column's all the
+way down.
 
 ## Engines
 
@@ -543,8 +561,9 @@ from it; recorded from the sets after 2026-11-25 on, the earlier ones don't have
 - **SwiftUI's Table** gets the same rows but its own row height and style; on hundreds of
   thousands of rows its numbers are mostly about whether it shows them at all.
 - **Binance numbers** change with the market and the network.
-- **No scrolling is measured on the Mac**: the tables stay at the top, where the busiest rows are.
-  (The iPhone and iPad bench measures scrolling while values change.)
+- **Scrolling is measured on a static table only** (`scroll`): in the live scenarios the tables stay
+  at the top, where the busiest rows are. (The iPhone and iPad bench measures scrolling while values
+  change.)
 - **The window server's CPU time** is measured only with a powermetrics recording (`--power`);
   its GPU time always.
 - **GPU time depends on what else the screen shows, and why isn't settled.** In a quiet run outside

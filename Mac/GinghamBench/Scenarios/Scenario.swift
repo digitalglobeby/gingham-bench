@@ -14,10 +14,13 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
     case wideTrades = "wide-trades"
     case orderBook = "order-book"
     case tradeFeed = "trade-feed"
+    case quietTable = "quiet-table"
+    case scroll
     case binanceTickers = "binance-tickers"
     case binanceBooks = "binance-books"
     case sortText = "sort-text"
     case sortTextAccount = "sort-text-account"
+    case sortNumber = "sort-number"
 
     var title: String {
         switch self {
@@ -25,10 +28,13 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
         case .wideTrades: "Wide live trades"
         case .orderBook: "Order book"
         case .tradeFeed: "Trade feed"
+        case .quietTable: "Quiet table"
+        case .scroll: "Scrolling"
         case .binanceTickers: "Binance tickers"
         case .binanceBooks: "Binance order books"
         case .sortText: "Sort by pair"
         case .sortTextAccount: "Sort by account"
+        case .sortNumber: "Sort by amount"
         }
     }
 
@@ -36,7 +42,10 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
     var isLiveMarket: Bool { self == .binanceTickers || self == .binanceBooks }
 
     /// A static table sorted on request (the others are live).
-    var isSort: Bool { self == .sortText || self == .sortTextAccount }
+    var isSort: Bool { self == .sortText || self == .sortTextAccount || self == .sortNumber }
+
+    /// A static table scrolled at a steady speed (its steps aren't changes to pace).
+    var isScroll: Bool { self == .scroll }
 
     @MainActor func make(options: Options) -> Scenario {
         switch self {
@@ -44,10 +53,13 @@ nonisolated enum ScenarioID: String, CaseIterable, Sendable {
         case .wideTrades: SyntheticScenario(id: self, model: .wideTrades, sortByAmount: true, rows: options.rows)
         case .orderBook: SyntheticScenario(id: self, model: .orders, sortByAmount: false, rows: options.rows)
         case .tradeFeed: SyntheticScenario(id: self, model: .instruments, sortByAmount: false, rows: options.rows)
+        case .quietTable: SyntheticScenario(id: self, model: .trades, sortByAmount: true, rows: options.rows ?? 5_000, changesPerSecond: 10)
+        case .scroll: ScrollScenario(id: self, rows: options.rows ?? 100_000)
         case .binanceTickers: BinanceScenario(id: self, mode: .tickers, domain: options.binanceDomain)
         case .binanceBooks: BinanceScenario(id: self, mode: .depth, domain: options.binanceDomain)
         case .sortText: SortScenario(id: self, rows: options.rows ?? 1_000_000, column: "pair")
         case .sortTextAccount: SortScenario(id: self, rows: options.rows ?? 1_000_000, column: "account")
+        case .sortNumber: SortScenario(id: self, rows: options.rows ?? 1_000_000, column: "amount")
         }
     }
 }

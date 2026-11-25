@@ -178,6 +178,18 @@ final class SwiftUISlotsEngine: Engine {
     var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { model.rows.count }
 
+    /// Scrolled through the scroll view SwiftUI's Table puts its NSTableView in.
+    private var scroller = ClipScroller()
+    func scroll(toY y: CGFloat) {
+        if innerTable == nil { innerTable = SwiftUIEngine.findTable(in: view) }
+        scroller.scroll(innerTable?.enclosingScrollView, toY: y)
+    }
+    var rowPitch: CGFloat {
+        if innerTable == nil { innerTable = SwiftUIEngine.findTable(in: view) }
+        guard let table = innerTable else { return 24 }
+        return table.rowHeight + table.intercellSpacing.height
+    }
+
     func sourceRow(atDisplayIndex index: Int) -> Int? {
         guard index >= 0, index < rows.count else { return nil }
         let row = rows.sourceRow(atDisplay: index)

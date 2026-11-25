@@ -2,8 +2,8 @@
 # Builds the Mac app (Release) and runs every scenario with every engine, each run in a process
 # of its own, writing results/<date>.jsonl (a JSON line per run) and results/<date>.md (the table).
 #
-#   Scripts/run-all.sh                          everything: 8 scenarios × 7 engines × 3 runs of 10 s, then a
-#                                               round of all with the screen meter (about 90 minutes: runs
+#   Scripts/run-all.sh                          everything: 11 scenarios × 8 engines × 3 runs of 10 s, then a
+#                                               round of all with the screen meter (about 2½ hours: runs
 #                                               wait for Binance's request limit, SwiftUI's Table runs out its
 #                                               timeouts, and sorts on the main thread take a while)
 #   Scripts/run-all.sh --scenario live-trades   any of the app's arguments (see Mac/GinghamBench/App/Options.swift)

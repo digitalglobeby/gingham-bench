@@ -89,7 +89,8 @@ nonisolated struct SystemFrames: Codable, Sendable {
 }
 
 nonisolated struct SortNumbers: Codable, Sendable {
-    /// "first" (the first sort in the process, cold), "other" (the other text column), "again"
+    /// "first" (the first sort in the process, cold), "other" (the other column: the other text
+    /// column, or price after amount), "again"
     /// (the first column again); nil in results from before (three sorts of the same column).
     var step: String?
     /// The column sorted by.
@@ -129,7 +130,7 @@ nonisolated struct RunResult: Codable, Sendable {
     var numbers: RunNumbers?
     var sorts: [SortNumbers]?
     /// The order shown checked against the store after the run (live scenarios: stopped, then
-    /// every row in its place; sorts: Finder's order all the way down): "ok" or what's wrong.
+    /// every row in its place; sorts: the column's order all the way down, text in Finder's): "ok" or what's wrong.
     var orderCheck: String?
     /// The screen meter's state: "running", or why there are no screen numbers.
     var screenMeter: String?
@@ -254,7 +255,7 @@ nonisolated enum Report {
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
             if id?.isSort == true {
-                lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
+                lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Order | Quiet: frames with new data/s · callbacks/s | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             } else {
                 lines.append("| Engine | Frames with new data/s (max = the display's rate, \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | Mac power: CPU + GPU · an update | GPU clock · active | Window server CPU | Memory | GPU time | Window server GPU time · idle | GPU time, process + window server | CPU energy | Order | Runs |")
@@ -358,8 +359,13 @@ nonisolated enum Report {
             lines.append("")
             if id?.isSort == true {
                 lines += ["Three sorts in each run's process, each from the unsorted order and timed to the first frame showing the",
-                          "new order: the column (the first sort in the process, cold), the other text column, the first column again (a",
+                          "new order: the column (the first sort in the process, cold), the other column (the other text column; price",
+                          "after amount), the first column again (a",
                           "repeated sort: the tuned engines keep the keys of the last sorted columns, the typical ones sort from scratch).", ""]
+            }
+            if id?.isScroll == true {
+                lines += ["Scrolling: every display-link callback moves the table to where the steady speed puts it at that time (a late",
+                          "callback moves it further, as under a finger); an update applied is a step of the scroll, and there's no data age.", ""]
             }
             if id?.isSort != true {
                 lines += ["Frames with new data: how many times a second the table's picture actually changed (at least one visible",

@@ -322,7 +322,8 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
     /// Trades changed.
     private let tradeChanges: Double
 
-    init(model: FeedModel, rows: Int? = nil, seed: UInt64 = 42) {
+    /// `changesPerSecond`: the trades' changes a second instead of the model's (the quiet table).
+    init(model: FeedModel, rows: Int? = nil, changesPerSecond: Double? = nil, seed: UInt64 = 42) {
         self.model = model
         width = model.columns.count
         random = SeededRandom(seed: seed &* 0x9E37_79B9_7F4A_7C15 &+ UInt64(model.rawValue.count))
@@ -331,7 +332,7 @@ nonisolated final class FeedGenerator: @unchecked Sendable {
         case .trades, .wideTrades:
             picksPerRow = 0
             insertsPerSecond = 0
-            tradeChanges = 45_000
+            tradeChanges = changesPerSecond ?? 45_000
         case .orders:
             // ngfeed's `orders`: 0.2% of the rows every 2 ms.
             picksPerRow = 1.0

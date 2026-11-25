@@ -255,6 +255,10 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
 
+    private var scroller = ClipScroller()
+    func scroll(toY y: CGFloat) { scroller.scroll(scrollView, toY: y) }
+    var rowPitch: CGFloat { layout.rowHeight }
+
     /// The items realized (NSCollectionView makes items for what its visible rect shows) and the
     /// labels shown in one (the columns in view).
     var rendered: (rows: Int, columns: Int)? {

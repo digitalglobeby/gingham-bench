@@ -8,10 +8,11 @@
 //    "Gingham Bench" --scenario live-trades --engine all --seconds 10 --runs 3 --output results/run.jsonl
 //
 //    --scenario <id|all|live>  live-trades, order-book, trade-feed, wide-trades (live trades with 24 columns),
-//                              binance-tickers, binance-books, sort-text (by pair), sort-text-account; "all";
-//                              "live" (no sorts); a comma list
+//                              quiet-table (5,000 trades, 10 changes a second), scroll (a static table scrolled),
+//                              binance-tickers, binance-books, sort-text (by pair), sort-text-account,
+//                              sort-number (by amount); "all"; "live" (no sorts); a comma list
 //    --engine <id|all>         gingham, nstable, nstable-tuned, nstable-cells, collection, swiftui,
-//                              swiftui-tuned; "all"; a comma list
+//                              swiftui-tuned, swiftui-slots; "all"; a comma list
 //    --seconds N               measured seconds per run (10)
 //    --warmup N                seconds after the rows show before measuring (3; Binance 5)
 //    --runs N                  runs of each engine (3), each in a new process

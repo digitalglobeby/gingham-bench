@@ -141,6 +141,10 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { tableView.numberOfRows }
 
+    private var scroller = ClipScroller()
+    func scroll(toY y: CGFloat) { scroller.scroll(scrollView, toY: y) }
+    var rowPitch: CGFloat { tableView.rowHeight + tableView.intercellSpacing.height }
+
     var rendered: (rows: Int, columns: Int)? {
         (tableView.rows(in: tableView.visibleRect).length, tableView.columnIndexes(in: tableView.visibleRect).count)
     }
