@@ -858,7 +858,8 @@ dozen rows out of 100,000 would almost never change while you watch.
    gesture; UITableView (typical) never does while values change, so its test
    takes about a quarter of an hour.
 2. **Render-server hitches, the app's tests** (Instruments' Animation
-   Hitches; the primary render-side figure): one recording per engine while the app runs its tests below;
+   Hitches; the primary render-side figure): three recordings per engine (from the next run on;
+   the published one has one), engines in turn and in another order each round, while the app runs its tests below;
    `iOS/Scripts/hitches-summary.py` attributes every hitch to the test it
    happened in (the app marks each test with an os_signpost interval) and
    gives each test's hitch count, hitch time and hitch time ratio.
@@ -899,7 +900,8 @@ eight seconds each, half a second apart:
 Positions come from the time of each frame, so a dropped frame leaves the
 content further along, as under a finger. Touches are ignored during the
 tests. Engines take turns (each once, then each again; three runs by
-default), so a device warming up doesn't favor the first one. Each result also
+default, the order turned by one each round), so a device warming up doesn't
+favor the first one. Each result also
 records what the test really did: the changes made (and how many on screen),
 how far it scrolled, the rows' measured height, the rows on screen, the
 columns shown, the refresh interval the display gave, and the thermal state at
@@ -965,7 +967,7 @@ With a device connected (Xcode 26 or later):
 ```sh
 iOS/Scripts/run-device.sh              # the app's tests: 100,000 rows at 1,000 changes/s, then 1,000,000 at 10,000
 iOS/Scripts/run-device.sh --ui-tests   # real flicks, render-server metrics (XCTOSSignpostMetric)
-iOS/Scripts/run-device.sh --hitches    # Animation Hitches traces, one per engine, attributed to each test
+iOS/Scripts/run-device.sh --hitches    # Animation Hitches traces, three per engine, attributed to each test
 iOS/Scripts/run-device.sh --all        # all three
 iOS/Scripts/run-device.sh -- -engine gingham,tableViewTuned -rows 1000000 -rate 10000
 ```

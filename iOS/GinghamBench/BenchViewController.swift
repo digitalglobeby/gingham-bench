@@ -303,13 +303,17 @@ final class BenchViewController: UIViewController {
     }
 
     /// Tests every engine once, then again, `runs` times (interleaved, so a
-    /// device warming up over the session doesn't favor the first engine).
+    /// device warming up over the session doesn't favor the first engine), the
+    /// order turned by one each round (no engine always first or always after
+    /// the same one).
     private func startPlan(engines: [BenchEngineKind], runs: Int) {
         guard !isRunningPlan else { return }
         isRunningPlan = true
         planEngines = engines
         planRuns = runs
-        plan = (1...runs).flatMap { run in engines.map { (kind: $0, run: run) } }
+        plan = (1...runs).flatMap { run in
+            engines.indices.map { index in (kind: engines[(index + run - 1) % engines.count], run: run) }
+        }
         planResults = []
         planStart = Date()
         updateMenus()
