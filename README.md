@@ -445,7 +445,9 @@ it. Each callback applies the changes that came since the last one (above), or, 
 The Markdown table gives, per scenario and engine, the median, lowest and highest of the runs; the JSON
 lines have every second of every run, the machine (model, chip, cores, memory, macOS version,
 Gingham's version from `GHTableView.version`, the screen and its refresh rate, Low Power Mode,
-thermal state, build configuration) and the date.
+thermal state, build configuration), the bench's own commit (`benchCommit`: what
+`Scripts/bench-commit.sh` gave when the scripts built the app, "-modified" if its sources differed
+from it; recorded from the sets after 2026-11-25 on, the earlier ones don't have it) and the date.
 
 ### Caveats
 
@@ -917,7 +919,8 @@ medians and worst), `BENCH_FILE`, `BENCH_DONE`; and writes a JSON report to its
 Documents (`latest.json` and a dated copy, also in the Files app) with the
 device model, iOS version, the display's maximum rate, Low Power Mode, whether
 a hardware keyboard was attached, the build (configuration, the bench's
-commit, Xcode and SDK versions, Gingham's version), the date and every test.
+commit, Xcode and SDK versions, Gingham's version), the date and every test
+(each test's line repeats the bench's commit and Gingham's version).
 
 ### Before measuring
 

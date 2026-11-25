@@ -25,6 +25,9 @@ nonisolated struct Machine: Codable, Sendable {
     var lowPowerMode: Bool
     var thermalState: String
     var build: String
+    /// The bench repository's commit the app was built from (`Scripts/bench-commit.sh`, "-modified"
+    /// when its sources differed from it); nil when built without the scripts (from Xcode).
+    var benchCommit: String?
 
     @MainActor static func current(screen: NSScreen?) -> Machine {
         func sysctl(_ name: String) -> String {
@@ -42,13 +45,14 @@ nonisolated struct Machine: Codable, Sendable {
         let build = "Release"
         #endif
         let version = info.operatingSystemVersion
+        let commit = (Bundle.main.object(forInfoDictionaryKey: "GinghamBenchCommit") as? String).flatMap { $0.isEmpty ? nil : $0 }
         return Machine(model: sysctl("hw.model"), chip: sysctl("machdep.cpu.brand_string"), cores: info.activeProcessorCount,
                        memoryGB: Int(info.physicalMemory / 1_073_741_824),
                        macOS: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
                        gingham: GHTableView.version, screen: screen?.localizedName ?? "?",
                        refreshRate: screen?.maximumFramesPerSecond ?? 0,
                        screenPoints: screen.map { "\(Int($0.frame.width))x\(Int($0.frame.height))" }, screenScale: screen.map { Double($0.backingScaleFactor) },
-                       lowPowerMode: info.isLowPowerModeEnabled, thermalState: thermal, build: build)
+                       lowPowerMode: info.isLowPowerModeEnabled, thermalState: thermal, build: build, benchCommit: commit)
     }
 
     static func thermalName(_ state: Int) -> String {
@@ -63,6 +67,7 @@ nonisolated struct Machine: Codable, Sendable {
 
     var line: String {
         "\(model), \(chip), \(cores) cores, \(memoryGB) GB, macOS \(macOS), Gingham \(gingham), \(screen) at \(refreshRate) Hz, \(build) build"
+            + ", bench \(benchCommit ?? "commit not recorded")"
             + (lowPowerMode ? ", LOW POWER MODE ON" : "") + (thermalState != "nominal" ? ", thermal state \(thermalState)" : "")
     }
 }

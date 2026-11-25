@@ -158,7 +158,8 @@ step() {
 # then finds it built): no session with a build signed some other way.
 build_signed() {
   xcodebuild -project Mac/GinghamBench.xcodeproj -scheme GinghamBench -configuration Release \
-    -derivedDataPath build/DerivedData -destination 'platform=macOS' build >> build/session-build.log 2>&1
+    -derivedDataPath build/DerivedData -destination 'platform=macOS' BENCH_COMMIT="$(Scripts/bench-commit.sh)" \
+    build >> build/session-build.log 2>&1
 }
 
 # Awake for the whole session, the display too.

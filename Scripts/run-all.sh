@@ -32,11 +32,13 @@ if [[ "$(pmset -g batt | head -1)" == *"Battery Power"* ]]; then
   echo "⚠︎ On battery: plug in for steady numbers."
 fi
 
+# The bench's commit goes into the app (and so into every result line).
+COMMIT=$(Scripts/bench-commit.sh)
 build() {
   xcodebuild -project Mac/GinghamBench.xcodeproj -scheme GinghamBench -configuration Release \
-    -derivedDataPath "$DERIVED" -destination 'platform=macOS' "$@" build >> "$LOG" 2>&1
+    -derivedDataPath "$DERIVED" -destination 'platform=macOS' BENCH_COMMIT="$COMMIT" "$@" build >> "$LOG" 2>&1
 }
-echo "▸ building Release (log: $LOG)"
+echo "▸ building Release of $COMMIT (log: $LOG)"
 # Signed with the project's team if this Mac has its certificate; otherwise signed to run locally.
 if ! build; then
   echo "  (no signing certificate of the project's team: building signed to run locally)"

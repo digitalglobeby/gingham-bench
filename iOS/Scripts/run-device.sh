@@ -91,8 +91,7 @@ rm -f "$LIST"
 echo "Device: $DEVICE ($DEVICE_TYPE)"
 
 # The bench's commit, recorded in the report.
-COMMIT="$(git -C "$IOS_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-if [[ -n "$(git -C "$IOS_DIR" status --porcelain -- . ../Shared 2>/dev/null)" ]]; then COMMIT="$COMMIT-modified"; fi
+COMMIT="$("$IOS_DIR/../Scripts/bench-commit.sh")"
 SETTINGS=(BENCH_COMMIT="$COMMIT")
 [[ -n "${DEVELOPMENT_TEAM:-}" ]] && SETTINGS+=(DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM")
 
