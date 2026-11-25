@@ -83,6 +83,34 @@ struct Applied {
     var visibleChanged: Bool?
 }
 
+/// `--update-rate N`: the changes applied N times a second instead of at every display-link
+/// callback, as an app that coalesces its updates does (to 30 a second, say), the same for every
+/// engine. The display link still runs at the display's rate, so the callbacks a second and the
+/// longest stall still show how free the main thread is; what an engine does with an update is
+/// measured as before. An engine that can't hold the rate applies as often as it can, without
+/// catching up in a burst.
+struct UpdatePacer {
+    let rate: Double
+    private var next: CFTimeInterval?
+
+    init(rate: Double) { self.rate = rate }
+
+    /// Whether the callback at `now` applies the changes (the first one does).
+    mutating func isDue(_ now: CFTimeInterval, refreshRate: Int) -> Bool {
+        let interval = 1 / rate
+        guard let due = next else {
+            next = now + interval
+            return true
+        }
+        // Callbacks come at the display's pace, a hair before or after a due time: half a
+        // refresh early counts as on time (every 4th callback at 120 Hz for 30 a second).
+        let slack = 0.5 / Double(max(refreshRate, 1))
+        guard now + slack >= due else { return false }
+        next = due + interval > now ? due + interval : now + interval
+        return true
+    }
+}
+
 extension Scenario {
     func attach(_ engine: Engine) {}
     func start() {}

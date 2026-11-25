@@ -8,6 +8,9 @@
 #                                               timeouts, and sorts on the main thread take a while)
 #   Scripts/run-all.sh --scenario live-trades   any of the app's arguments (see Mac/GinghamBench/App/Options.swift)
 #   Scripts/run-all.sh --runs 5 --seconds 20
+#   Scripts/run-all.sh --scenario live --update-rate 30
+#                                               changes applied 30 times a second for every engine (an app that
+#                                               coalesces), instead of at every display-link callback
 #   Scripts/run-all.sh --trace-pass             also one Instruments-traced run of each engine on live-trades and
 #                                               order-book: the system's count of the window's frames (~8 minutes more)
 #

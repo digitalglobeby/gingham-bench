@@ -139,12 +139,15 @@ final class ChildRun {
     private var lastLockCheck: CFTimeInterval = 0
     private var lagFrames = 0, checkedFrames = 0, differingPlaces = 0
     private var observers: [NSObjectProtocol] = []
+    /// `--update-rate`: when the changes are applied.
+    private var pacer: UpdatePacer?
 
     init(options: Options, ui: BenchWindow) {
         self.options = options
         scenarioID = options.scenarios[0]
         kind = options.engines[0]
         self.ui = ui
+        pacer = options.updateRate.map { UpdatePacer(rate: $0) }
     }
 
     func start() {
@@ -188,6 +191,7 @@ final class ChildRun {
         result.windowPixels = "\(Int(options.windowSize.width * scale))x\(Int(options.windowSize.height * scale))"
         result.after = options.afterEngine
         result.settleSeconds = options.settleSeconds
+        result.updateRate = options.updateRate
         return result
     }
 
@@ -266,7 +270,8 @@ final class ChildRun {
             lastBarUpdate = now
             let second = meter.data.lastSecond(now: now)
             ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age,
-                          screen: screenMeter?.state == "running" ? second.screen : nil, refreshRate: meter.refreshRate)
+                          screen: screenMeter?.state == "running" ? second.screen : nil,
+                          refreshRate: pacer.map { min(Int($0.rate), meter.refreshRate) } ?? meter.refreshRate)
         }
         checkVisible(now)
         guard !scenarioID.isSort else { return }
@@ -298,8 +303,11 @@ final class ChildRun {
             differingPlaces += differing
             checkedFrames += 1
         }
-        // Everything that came since the last callback, applied at once.
-        meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
+        // Everything that came since the last update, applied at once: at every callback, or
+        // with `--update-rate` at that rate.
+        if pacer?.isDue(now, refreshRate: meter.refreshRate) ?? true {
+            meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
+        }
         if let window, now >= window.end, !verifying { finishMeasured(window) }
     }
 

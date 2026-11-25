@@ -108,6 +108,9 @@ nonisolated struct RunResult: Codable, Sendable {
     /// round), and the seconds waited after it for the window server to settle.
     var after: String?
     var settleSeconds: Double?
+    /// `--update-rate`: the changes applied this many times a second (nil: at every display-link
+    /// callback).
+    var updateRate: Double?
     /// ok; timeout (no rows within the load timeout, or a sort step too long); stuck (the main
     /// thread didn't come back after the window); invalid (the window was covered or the screen
     /// locked during the run); error.
@@ -223,6 +226,12 @@ nonisolated enum Report {
         if let window { setup.append("Table window \(times(window)) points" + (pixels.map { " (\(times($0)) pixels)" } ?? "")) }
         if windows.count > 1 { setup.append("several window sizes: \(windows.sorted().map(times).joined(separator: ", ")) points") }
         if let display { setup.append("display \(display)") }
+        let rates = Set(results.filter { !(ScenarioID(rawValue: $0.scenario)?.isSort ?? false) }.map { $0.updateRate.map { "\(Int($0))" } ?? "every callback" })
+        if rates.count == 1, let rate = rates.first, rate != "every callback" {
+            setup.append("changes applied \(rate) times a second (--update-rate \(rate)), the display link at the display's rate")
+        } else if rates.count > 1 {
+            setup.append("several update rates: \(rates.sorted().joined(separator: ", "))")
+        }
         if let shown = results.compactMap(\.onScreen).first, let window {
             let screen = window == "3840x2160" ? "4K display" : "\(times(window))-point display"
             setup.append("a table larger than the screen (\(times(shown)) points of the window on it): what a \(screen) at \(first.machine.refreshRate) Hz would show")

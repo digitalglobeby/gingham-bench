@@ -38,7 +38,8 @@ use the command line, which runs each engine in a fresh process with a warm-up a
 
 It writes a JSON line per run and, next to it, a Markdown table (`bench.md`) with the median,
 lowest and highest of the runs. Other arguments: `--scenario live-trades,order-book` (or `live`
-for all but the sorts), `--engine gingham,nstable-tuned`, `--warmup 3`, `--rows N`,
+for all but the sorts), `--engine gingham,nstable-tuned`, `--warmup 3`, `--rows N`, `--update-rate 30`
+(below),
 `--load-timeout 30`, `--binance-domain binance.us`, `--window 1000x640` (also larger than the
 screen: `--window 3840x2160`), `--screen LG` (the display to open on), `--gingham-extras`,
 `--swiftui-diff-moves`, `--summarize file.jsonl`, `--check-formats`, `--calibrate-feed trades`,
@@ -78,7 +79,8 @@ spec the project is generated from; the generated project is committed, so Xcode
 **Generated data** is made in the app, on a thread of its own, from a fixed seed: the same rows
 and the same stream of changes on every run, every engine and every Mac. The generator ticks more
 often than any screen refreshes (every 2–4 ms), so changes accumulate continuously; at every
-screen refresh the main thread applies everything that came since the last one (below).
+screen refresh the main thread applies everything that came since the last one, or, with
+`--update-rate`, at a rate of the app's choosing (below).
 
 - `live-trades` is the comparison window of Gingham's README: 20,000 trades of 32 pairs; random
   trades get a new price and quantity (their amount, change and update count follow), 45,000 a
@@ -154,6 +156,14 @@ with the last row moved into its place, and the rows whose values changed with t
 changed (rows that changed a column the table is sorted by are told apart from the others). So an
 engine that keeps up gets new data to show at every refresh; one that doesn't gets bigger batches
 less often.
+
+That is the saturating case: the app asks for as many updates as the screen shows. An app that
+knows its table can't keep up coalesces instead, updating 30 or 60 times a second; `--update-rate 30`
+(or 60) does that for every engine alike: the changes are applied in one batch 30 times a second,
+while the display link keeps the display's rate (so the callbacks a second and the longest stall
+still show how free the main thread is). The tables below were measured at every refresh; tables at
+an equal 30 and 60 updates a second, where the engines that can hold the rate compare by what it
+costs them, come from the next session (`Scripts/next-session.sh`, steps 4–6).
 
 The app is in the Swift 6 language mode with main-actor default isolation. A closure made in a
 main-actor function checks that it runs on the main thread every time it's called, which made the
@@ -320,7 +330,8 @@ never comes back.
 
 Frames are counted by a `CADisplayLink` of the window's screen, asked for the screen's full rate:
 its callbacks run on the main thread, once per screen refresh when the main thread is free to take
-it. Each callback applies the changes that came since the last one (above). Per engine:
+it. Each callback applies the changes that came since the last one (above), or, with
+`--update-rate N`, the callbacks due at that rate do. Per engine:
 
 - **Frames with new data a second (max = the display's rate)**: how many times a second the table's
   picture actually changed (at least one visible value new): like frames a second, but a frozen
@@ -379,13 +390,14 @@ it. Each callback applies the changes that came since the last one (above). Per 
   cell-based table 73 against 58.8, its GPU frames 85.8). The screen numbers come from runs without
   a trace.
 - **Updates applied a second**: callbacks that applied new data, the times a second the table was
-  given something new to show (at most the screen's refresh rate). Whether each update then
+  given something new to show (at most the screen's refresh rate, or the `--update-rate`). Whether each update then
   reached the screen, only Gingham can tell (`GHTableView.framePresented`); its **frames
   presented** a second are shown next to it. No other engine has a way to report that. The window's
   big number is the frames with new data when the meter runs, and these otherwise.
 - **Data age**: from the time a change was due in the feed (Binance: its arrival from the network)
   to the start of the callback that applied it, median and 99th percentile over the changes. It
-  ends there: that frame's applying, layout, commit and presentation aren't in it. Ticks keep the
+  ends there: that frame's applying, layout, commit and presentation aren't in it. With
+  `--update-rate` it includes the wait for the next update (half its interval on average). Ticks keep the
   time they were due even when the generator waits for a slow engine (below), so an engine that
   falls behind shows it here.
 - **Main thread busy**: the share of time the main run loop wasn't waiting (run loop observers of
