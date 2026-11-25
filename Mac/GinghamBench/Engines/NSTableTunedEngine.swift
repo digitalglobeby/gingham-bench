@@ -109,7 +109,7 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
         for refresh in ended.refreshes where refresh.display < shown {
             for column in refresh.allColumns ? all : ended.columns {
                 if let cell = tableView.view(atColumn: column, row: refresh.display, makeIfNecessary: false) as? TunedCell {
-                    cell.show(BenchFormat.text(source, row: refresh.row, column: column))
+                    cell.show(BenchFormat.tunedText(source, row: refresh.row, column: column))
                 }
             }
         }
@@ -181,7 +181,7 @@ final class NSTableTunedEngine: NSObject, Engine, NSTableViewDataSource, NSTable
             cell.alignment = source.columns[index].isTrailing ? .right : .left
         }
         let sourceRow = rows.sourceRow(atDisplay: row)
-        cell.show(sourceRow >= 0 && sourceRow < source.rowCount ? BenchFormat.text(source, row: sourceRow, column: index) : "")
+        cell.show(sourceRow >= 0 && sourceRow < source.rowCount ? BenchFormat.tunedText(source, row: sourceRow, column: index) : "")
         return cell
     }
 }

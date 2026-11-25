@@ -214,6 +214,13 @@ What an AppKit expert would write for live data, every choice aimed at doing les
 - **Cells**: a plain `NSTextField` label per cell (no `NSTableCellView`, no Auto Layout: the
   table sets the frame), reused per column. A cell remembers its text and sets `stringValue` only
   when the text differs, so an unchanged cell is neither laid out again nor redrawn.
+- **Numbers written by hand**: the text of Foundation's format styles (the locale's grouping and
+  decimal separators, the digits asked for, rounded as Foundation rounds), made with integer
+  arithmetic instead of a `FloatingPointFormatStyle` call per value, as an app does for values that
+  change thousands of times a second. Foundation still writes the rare value whose rounding would
+  be in doubt, and every number in a locale whose numbers it can't write the same way (other digits
+  or grouping); `--check-formats` compares a million values. The typical engines keep Foundation's
+  format styles.
 - **Fixed geometry**: `rowHeight` 20 with `rowSizeStyle = .custom` and no automatic row heights;
   no column autoresizing; a layer-backed scroll view.
 - **No reloads through the table**: at the end of a batch, the cells in view whose text changed
@@ -253,16 +260,20 @@ visible cell itself with one `NSTextFieldCell` per column (`dataCell`), asking t
 each value as it draws (`tableView(_:objectValueFor:row:)`). Tuned like the view-based one: at the
 end of a batch only the changed cells in view are marked for drawing
 (`setNeedsDisplay(frameOfCell(atColumn:row:))`, the whole row for a row that shows another record),
-fixed 20-point rows, one `noteNumberOfRowsChanged()` per batch, and the same incremental sort. (A
-variant where one view draws a whole row isn't measured: the cell-based table already draws all
-cells in one view.)
+fixed 20-point rows, one `noteNumberOfRowsChanged()` per batch, and the same incremental sort.
+The text of the cells in view is made once per change and kept (by place, with the record it was
+made for; dropped when the value changes or the place leaves the view), so a cell the table draws
+again without a change (a neighbor's redraw, an overlapping dirty rect) doesn't format its value
+again; numbers are written by hand, as the tuned view-based table writes them. Not tried: an
+`NSCell` subclass that draws its text itself instead of `NSTextFieldCell`, and a view-based table
+whose row view draws all its cells (the cell-based table already draws all cells in one view).
 [`NSTableCellsEngine.swift`](Mac/GinghamBench/Engines/NSTableCellsEngine.swift)
 
 ### NSCollectionView
 
 AppKit's counterpart of `UICollectionView`, set up the way an expert would for many rows: each
 row an item with a label per column at the columns' widths (plain `NSTextField`s with frames, text
-set only when it changes), items reused through `makeItem(withIdentifier:for:)`, and a custom
+set only when it changes, numbers written by hand as the tuned NSTableView's), items reused through `makeItem(withIdentifier:for:)`, and a custom
 layout for fixed 20-point rows that computes an item's frame from its index (nothing cached or
 measured per item, unlike `NSCollectionViewFlowLayout`, which prepares every item's attributes).
 Changes update the items in view in place (`item(at:)`); a change in the number of rows is one
@@ -295,6 +306,8 @@ What an expert would do to give SwiftUI less to compare and redraw:
   the value is equal).
 - The columns are written out statically (`TableColumn`s in the table's builder, a Table for each
   column count the scenarios have) instead of `TableColumnForEach` over an array of values.
+- The hosting view doesn't size itself to its content (`sizingOptions = []`): the window gives it
+  its frame, so SwiftUI needn't work out the table's ideal size when the content changes.
 - Unsorted, the rows array changes only when rows come or go, in place; it's never replaced.
 - Sorted, the order is kept by the same incremental sort as the tuned AppKit engines, and when it
   changes the table gets the reordered rows with a new `.id`, so SwiftUI builds the table afresh

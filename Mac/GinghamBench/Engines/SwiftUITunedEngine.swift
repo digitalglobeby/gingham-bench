@@ -19,6 +19,12 @@
 //    working out every row's move (measured: diffing 20,000 rows' moves took seconds a frame,
 //    `--swiftui-diff-moves` turns the `.id` off to compare). A header click goes through the
 //    `sortOrder` binding; a static table is sorted in the background.
+//  - The hosting view doesn't size itself to its content (`sizingOptions = []`): the window
+//    gives it its frame.
+//
+//  "Tuned" keeps each row's identity (the record's), so a reorder rebuilds the rows; the slots
+//  engine (`SwiftUISlotsEngine`) identifies rows by their place instead, as the tuned AppKit
+//  engines address the places in view.
 //
 
 import AppKit
@@ -215,7 +221,11 @@ final class SwiftUITunedEngine: Engine {
 
     init() {
         if #available(macOS 14.4, *) {
-            view = NSHostingView(rootView: SwiftUITunedTableView(model: model))
+            // The window sizes the view (by frame): the hosting view needn't work out the table's
+            // ideal size whenever its content changes.
+            let hosting = NSHostingView(rootView: SwiftUITunedTableView(model: model))
+            hosting.sizingOptions = []
+            view = hosting
         } else {
             view = NSHostingView(rootView: Text("SwiftUI's Table column alignment needs macOS 14.4 or later"))
         }

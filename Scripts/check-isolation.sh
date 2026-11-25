@@ -13,7 +13,7 @@ set -e
 cd "$(dirname "$0")/.."
 BIN=${1:-"build/DerivedData/Build/Products/Release/Gingham Bench.app/Contents/MacOS/Gingham Bench"}
 [[ -f "$BIN" ]] || { echo "✗ no binary at $BIN (build Release first)"; exit 1 }
-HOT='AppSortWork|LiveOrder\.(merge|less|rank|placePending|rowsChanged|rowsInserted|rowRemoved)|ParallelSort|TunedRows\.|FeedStore\.(apply|write|removeRow|flushUpdates)|FeedGenerator|FeedPump|ZipfPicker|SeededRandom|SwiftUIRowComparator|SlotRow\.subscript|BenchFormat|BinanceStore\.(apply|write|note|flush|removeLevel)|closure #[0-9]+ in .*(endUpdates|reloadRows|insertRows|applyPending|AppSort)|checkOrder|MeterData'
+HOT='AppSortWork|LiveOrder\.(merge|less|rank|placePending|rowsChanged|rowsInserted|rowRemoved)|ParallelSort|TunedRows\.|FeedStore\.(apply|write|removeRow|flushUpdates)|FeedGenerator|FeedPump|ZipfPicker|SeededRandom|SwiftUIRowComparator|SlotRow\.subscript|BenchFormat|FastFormat|BinanceStore\.(apply|write|note|flush|removeLevel)|closure #[0-9]+ in .*(endUpdates|reloadRows|insertRows|applyPending|AppSort)|checkOrder|MeterData'
 otool -tV "$BIN" | python3 -c '
 import re, subprocess, sys
 current, hits = None, {}

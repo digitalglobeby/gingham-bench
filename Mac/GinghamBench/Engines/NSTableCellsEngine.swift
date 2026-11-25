@@ -11,6 +11,10 @@
 //  - Updates: nothing is reloaded; at the end of a batch only the changed cells in view are
 //    marked for drawing (`setNeedsDisplay(frameOfCell(atColumn:row:))`, the whole row for a row
 //    that shows another record now), so the table redraws just those.
+//  - Text made once per change: the cells in view keep their text (by place, with the record it
+//    was made for), dropped when the value changes, so a cell the table draws again without a
+//    change (a neighbor's redraw, an overlapping dirty rect) doesn't format its number again;
+//    numbers are written by hand (`FastFormat`), not through Foundation's format styles.
 //  - Fixed geometry as the tuned view-based table: 20-point rows, no column autoresizing.
 //  - Sorting: the same incremental `LiveOrder` as the tuned engines (only changed rows
 //    re-placed; a static table sorted in the background).
@@ -30,6 +34,9 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     private var columnIndex: [String: Int] = [:]
     private var depth = 0
     private var isSettingDescriptors = false
+    /// The text of the cells in view, by place: the store row it was made for and each column's
+    /// text (nil: to be made at the next draw). Places out of view are dropped after a batch.
+    private var texts: [Int: (row: Int, columns: [String?])] = [:]
     var view: NSView { scrollView }
 
     private static let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -72,6 +79,11 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
         isSettingDescriptors = true
         tableView.sortDescriptors = sort.map { NSSortDescriptor(key: source.columns[$0.column].id, ascending: $0.ascending) }
         isSettingDescriptors = false
+        reloadAll()
+    }
+
+    private func reloadAll() {
+        texts.removeAll()
         tableView.reloadData()
     }
 
@@ -90,17 +102,27 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     func endUpdates() {
         depth -= 1
         guard depth == 0 else { return }
-        let ended = rows.end(visible: visibleRows)
+        let visible = visibleRows
+        let ended = rows.end(visible: visible)
         if ended.reloadAll {
-            tableView.reloadData()
+            reloadAll()
             return
         }
+        // Text kept for places out of view could go stale unseen: dropped. (Loops, no closures:
+        // see `AppSortWork`.)
+        var outside: [Int] = []
+        for place in texts.keys where !visible.contains(place) { outside.append(place) }
+        for place in outside { texts[place] = nil }
         let shown = tableView.numberOfRows
         for refresh in ended.refreshes where refresh.display < shown {
             if refresh.allColumns {
+                texts[refresh.display] = nil
                 tableView.setNeedsDisplay(tableView.rect(ofRow: refresh.display))
             } else {
-                for column in ended.columns { tableView.setNeedsDisplay(tableView.frameOfCell(atColumn: column, row: refresh.display)) }
+                for column in ended.columns {
+                    texts[refresh.display]?.columns[column] = nil
+                    tableView.setNeedsDisplay(tableView.frameOfCell(atColumn: column, row: refresh.display))
+                }
             }
         }
         if ended.countChanged { tableView.noteNumberOfRowsChanged() }
@@ -125,7 +147,7 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
         for descriptor in tableView.sortDescriptors {
             if let key = descriptor.key, let column = columnIndex[key] { sort.append(SortSpec(column: column, ascending: descriptor.ascending)) }
         }
-        rows.sort(by: sort) { [weak self] in self?.tableView.reloadData() }
+        rows.sort(by: sort) { [weak self] in self?.reloadAll() }
     }
 
     var isSorting: Bool { rows.isSorting }
@@ -149,6 +171,11 @@ final class NSTableCellsEngine: NSObject, Engine, NSTableViewDataSource, NSTable
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
         guard let tableColumn, let source = rows.source, let index = columnIndex[tableColumn.identifier.rawValue] else { return nil }
         let sourceRow = rows.sourceRow(atDisplay: row)
-        return sourceRow >= 0 && sourceRow < source.rowCount ? BenchFormat.text(source, row: sourceRow, column: index) : ""
+        guard sourceRow >= 0, sourceRow < source.rowCount else { return "" }
+        if let kept = texts[row], kept.row == sourceRow, let text = kept.columns[index] { return text }
+        let text = BenchFormat.tunedText(source, row: sourceRow, column: index)
+        if texts[row]?.row != sourceRow { texts[row] = (sourceRow, [String?](repeating: nil, count: source.columns.count)) }
+        texts[row]?.columns[index] = text
+        return text
     }
 }
