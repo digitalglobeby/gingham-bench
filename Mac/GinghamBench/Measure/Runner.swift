@@ -763,6 +763,12 @@ enum Orchestrator {
                     if process.terminationStatus != 0 { failures += 1 }
                     }
         }
+        if let recording = options.powerFile {
+            // The Mac's power in each run's window, from the owner's powermetrics recording (its
+            // last samples a moment to reach the file).
+            Thread.sleep(forTimeInterval: 3)
+            print(PowerMetrics.attach(recording: recording, to: output))
+        }
         let markdownPath = (output as NSString).deletingPathExtension + ".md"
         let markdown = Report.markdown(Report.read(output))
         try? markdown.write(toFile: markdownPath, atomically: true, encoding: .utf8)

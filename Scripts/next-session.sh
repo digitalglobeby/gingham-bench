@@ -14,7 +14,18 @@
 # syncing; the built-in display at 120 Hz in the mode of the published results (2056 × 1329 points);
 # the network up (Binance); the terminal's Screen Recording permission on (and its Developer Tools
 # permission for the trace pass); don't touch the Mac. Every result's header shows the Gingham
-# version it ran with (Mac/project.yml: `from:`).
+# version it ran with (Mac/project.yml: `from:`) and the bench's commit.
+#
+# The Mac's power (CPU + GPU) needs powermetrics, which needs root: start it in another terminal
+# before the session and leave it running to the end (about 160 KB a second: some 3 GB for the
+# whole session), then give its file to the session:
+#
+#   sudo powermetrics -s cpu_power,gpu_power,tasks --show-process-gpu --show-process-energy \
+#       -i 1000 -f plist -o ~/gingham-power.plist
+#   POWER=~/gingham-power.plist Scripts/next-session.sh
+#
+# Each step's runs then get the power in their measured windows (results/<date>.jsonl, `power`, and
+# the Markdown's "Mac power" column). Without POWER the session runs as before, without power.
 #
 # Unattended: the Mac stays awake (caffeinate) for the whole session; before each step it waits until
 # the Mac has settled (all processes together under 30% of the CPU, three readings in a row; at most
@@ -50,6 +61,25 @@ LIVE=live-trades,order-book,trade-feed,wide-trades
 MIN_FREE_GB=40
 
 say() { echo "[$(date +%H:%M:%S)] $*" }
+
+# The powermetrics recording (POWER=file): given to every step's runs.
+POWER_ARGS=()
+if [[ -n "$POWER" ]]; then
+  POWER=${~POWER}
+  if [[ ! -s "$POWER" ]]; then
+    say "✗ POWER=$POWER: no such file (start powermetrics first, see the top of this script)"
+    exit 64
+  fi
+  POWER_ARGS=(--power "$POWER")
+fi
+
+# Whether the powermetrics recording still grows (it stopped: the rest of the session has no power).
+power_alive() {
+  [[ -z "$POWER" ]] && return 0
+  local before=$(stat -f %z "$POWER")
+  sleep 3
+  (( $(stat -f %z "$POWER") > before ))
+}
 
 free_gb() { df -k /System/Volumes/Data | awk 'NR == 2 { printf "%d", $4 / 1024 / 1024 }' }
 
@@ -111,9 +141,10 @@ run() {
   check_disk
   wait_settled
   say "▸ Scripts/run-all.sh $*"
+  power_alive || say "⚠︎ $POWER doesn't grow: is powermetrics still running? (this step's runs get no power)"
   local exit_status=0 marker=build/session-step-marker
   touch $marker
-  Scripts/run-all.sh "$@" || exit_status=$?
+  Scripts/run-all.sh "$@" "${POWER_ARGS[@]}" || exit_status=$?
   clean_kernel_traces
   say "  done (exit $exit_status), $(free_gb) GB free"
   # The step's results: scenarios with runs the network failed.
@@ -167,7 +198,7 @@ caffeinate -dims -w $$ &
 watch_disk &
 WATCHER=$!
 trap 'kill $WATCHER 2>/dev/null' EXIT
-say "session log: $LOG · Gingham $(grep -A2 'Gingham:' Mac/project.yml | grep -m1 'from:' | sed 's/.*from: *//') · $(free_gb) GB free"
+say "session log: $LOG · Gingham $(grep -A2 'Gingham:' Mac/project.yml | grep -m1 'from:' | sed 's/.*from: *//') · bench $(Scripts/bench-commit.sh) · $(free_gb) GB free · power: ${POWER:-not recorded (no POWER)}"
 check_disk
 build_signed || build_signed || { say "✗ the Release build failed (build/session-build.log)"; exit 1 }
 

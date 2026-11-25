@@ -42,7 +42,7 @@ for all but the sorts), `--engine gingham,nstable-tuned`, `--warmup 3`, `--rows 
 (below),
 `--load-timeout 30`, `--binance-domain binance.us`, `--window 1000x640` (also larger than the
 screen: `--window 3840x2160`), `--screen LG` (the display to open on), `--gingham-extras`,
-`--swiftui-diff-moves`, `--summarize file.jsonl`, `--check-formats`, `--calibrate-feed trades`,
+`--swiftui-diff-moves`, `--summarize file.jsonl`, `--power power.plist` (below), `--check-formats`, `--calibrate-feed trades`,
 and, in window mode, `--show order-book/collection` and `--cycle 7` (switches engines every
 7 seconds, for recording). All of them are described in
 [`Options.swift`](Mac/GinghamBench/App/Options.swift).
@@ -419,11 +419,36 @@ it. Each callback applies the changes that came since the last one (above), or, 
   session), and **the two
   together**: the work lands in different places, AppKit's drawing composited under the window
   server, Gingham's GPU work counted as the process's. Only increases between samples count (a GPU client that
-  closes takes its time with it). Also the process's **CPU energy** as the kernel accounts it
+  closes takes its time with it). GPU time is time at whatever clock the GPU ran, not an amount of
+  work or energy: the clock follows the load (in a quiet run on 2026-11-25 the M1 Max's GPU stayed at
+  its lowest clock, 389 MHz, for Gingham and the AppKit tables alike), and the same work takes longer
+  at a lower clock. So GPU time doesn't compare costs across engines (or sessions); the Mac's power
+  (next) does, and the README's tables show that instead. Also the process's **CPU energy** as the kernel accounts it
   (`task_energy` of `TASK_POWER_INFO_V2`): the CPU's alone, not the GPU work the process does
   (Gingham's table is drawn by the GPU), not the window server's compositing (AppKit's drawing is
   composited there); so it isn't total energy, and the column says "CPU energy". Also **memory** (physical footprint) and the **thermal state**, sampled every 250 ms on
   another thread: work an engine moves off the main thread, or to the GPU, shows here.
+- **Mac power (CPU + GPU)**: the whole Mac's CPU and GPU power while the run measured, from
+  `powermetrics`. It needs root, so the bench doesn't run it: the person measuring records the
+  whole session in a terminal of their own,
+
+  ```sh
+  sudo powermetrics -s cpu_power,gpu_power,tasks --show-process-gpu --show-process-energy \
+      -i 1000 -f plist -o ~/gingham-power.plist
+  ```
+
+  and hands the file to the run (`Scripts/run-all.sh --power ~/gingham-power.plist`,
+  `POWER=~/gingham-power.plist Scripts/next-session.sh`, or afterwards
+  `"Gingham Bench" --summarize results/<date>.jsonl --power ~/gingham-power.plist`). Each run gets
+  the medians of the samples taken wholly inside its measured window (a sample covers the second
+  before its time stamp, which is given to the second: about 7 samples of a 10-second window):
+  powermetrics' combined CPU and GPU power (every process, the window server's compositing
+  included; not the display or memory), the CPU's and the GPU's apart, the **energy an update**
+  (that power over the updates applied a second), the GPU's clock and how much of the time it was
+  active, and the **window server's CPU** from powermetrics' task list (the bench can't read it
+  otherwise: another user's process). The whole Mac is measured, so a quiet Mac matters even more
+  here: anything else running is in the number. Power is in the results from the next session on
+  (`Scripts/next-session.sh`); the published sets were measured without it.
 - **Order check**: after each live run the feed stops, the last changes are applied, and the order
   the engine shows is checked against the store: every row once, in the scenario's order. For the
   view-based AppKit tables, whose cells can be read, the text of every cell in view is checked
@@ -486,7 +511,16 @@ from it; recorded from the sets after 2026-11-25 on, the earlier ones don't have
 - **Binance numbers** change with the market and the network.
 - **No scrolling is measured on the Mac**: the tables stay at the top, where the busiest rows are.
   (The iPhone and iPad bench measures scrolling while values change.)
-- **The window server's CPU time isn't measured** (another user's process); its GPU time is.
+- **The window server's CPU time** is measured only with a powermetrics recording (`--power`);
+  its GPU time always.
+- **GPU time depends on what else the screen shows, and why isn't settled.** In a quiet run outside
+  the published sets (2026-11-25: Gingham on the order book at 2040 × 1080 and 3840 × 2160, a black
+  window behind the bench's, nothing else drawing) the window server's GPU time for the same
+  scenario and sizes was 2.5–4.8 times lower than in the published sets, and Gingham's own GPU time
+  2.3–3.6 times higher (a lower clock makes the same work take longer). What the window server was
+  doing in the published runs isn't known (what else the screen showed around a window smaller
+  than it, the runs before, the GPU's clock history). Until it is, compare GPU time only within a
+  set, and costs by the Mac's power.
 
 ## Results
 

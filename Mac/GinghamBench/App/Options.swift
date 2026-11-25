@@ -30,6 +30,9 @@
 //    --swiftui-diff-moves      the tuned SwiftUI Table gets reordered rows without a new .id (SwiftUI diffs the moves)
 //    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout);
 //                              for results without them, --window WxH and --display TEXT give the header's sizes
+//    --power FILE              a powermetrics recording of the session (see Measure/Power.swift): the Mac's CPU and GPU
+//                              power in each run's measured window is added to its result (after the runs, or with
+//                              --summarize to the file summarized)
 //    --check-formats           prints where the other engines' number text differs from Gingham's
 //    --self-test               replays order book changes into every engine (no network) and checks their order
 //    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
@@ -64,6 +67,8 @@ struct Options {
     var ginghamExtras = false
     var swiftUIDiffsMoves = false
     var summarize: String?
+    /// `--power`: a powermetrics recording (plist samples) to take the Mac's power from.
+    var powerFile: String?
     var markdown: String?
     var windowGiven = false
     var display: String?
@@ -145,6 +150,7 @@ struct Options {
             case "--gingham-extras": options.ginghamExtras = true
             case "--swiftui-diff-moves": options.swiftUIDiffsMoves = true
             case "--summarize": options.summarize = try value(argument)
+            case "--power": options.powerFile = (try value(argument) as NSString).expandingTildeInPath
             case "--markdown": options.markdown = try value(argument)
             case "--display": options.display = try value(argument)
             case "--check-formats": options.checkFormats = true

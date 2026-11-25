@@ -40,6 +40,7 @@
 		DBFB20A7FD257F070D95CD39 /* ScreenMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */; };
 		DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA70C66D0905A84B2844489E /* Runner.swift */; };
 		E2D1AD5A83613A47CEAE20A5 /* NSTableCellsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */; };
+		E6E66A71CCC751BE44887AF2 /* Power.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3324BFB16EC7E4B996553D4 /* Power.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -74,6 +75,7 @@
 		E82D253D06EE35D0B84A56A2 /* Columns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Columns.swift; sourceTree = "<group>"; };
 		EB417713D2BF803522623279 /* TraceFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceFrames.swift; sourceTree = "<group>"; };
 		EC00F04B7E7D1D45DA1B08D0 /* CollectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionEngine.swift; sourceTree = "<group>"; };
+		F3324BFB16EC7E4B996553D4 /* Power.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Power.swift; sourceTree = "<group>"; };
 		F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenMeter.swift; sourceTree = "<group>"; };
 		FB0E747B4E6890ECFB1F0CC4 /* GinghamBench.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GinghamBench.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -138,6 +140,7 @@
 			children = (
 				29F55DC968127DA0B506B841 /* CrashCatcher.swift */,
 				00B3E5852E80F3F093036088 /* Meter.swift */,
+				F3324BFB16EC7E4B996553D4 /* Power.swift */,
 				598A062B7F93CBD847E38015 /* Report.swift */,
 				AA70C66D0905A84B2844489E /* Runner.swift */,
 				F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */,
@@ -285,6 +288,7 @@
 				9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */,
 				A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */,
 				BE3F08E2141A431C869C4238 /* Options.swift in Sources */,
+				E6E66A71CCC751BE44887AF2 /* Power.swift in Sources */,
 				80A5291E965FB5754E58DB4B /* Report.swift in Sources */,
 				DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */,
 				4A6C26AA4EAA8F10587D4B1E /* Scenario.swift in Sources */,
