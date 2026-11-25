@@ -15,7 +15,7 @@ think an engine is used wrong, the code that uses it is a few hundred lines in
 faster way and it will be measured.
 
 **Who wrote it**: the bench, the competitors' engines included, is written by Gingham's maker. The
-competitors' engines are his best effort at using each framework well, and no one else has
+competitors' engines are the maker's best effort at using each framework well, and no one else has
 reviewed them yet: reviews, issues and pull requests from people who know AppKit and SwiftUI are
 welcome, and their results will be published whatever they do to Gingham's lead. Gingham itself
 was improved against these scenarios while the bench was being written (its latest releases used
