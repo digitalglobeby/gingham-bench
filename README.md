@@ -23,7 +23,7 @@ the bench as their measure), while the competitors' engines were written once: t
 chance through contributions (CONTRIBUTING.md).
 
 Gingham comes in as customers get it: the binary package
-`https://github.com/digitalglobeby/Gingham` (`from: "1.1.4"`). It's free for tables of up to
+`https://github.com/digitalglobeby/Gingham` (`from: "1.2.0"`). It's free for tables of up to
 10,000 rows; the bench registers a license key that unlocks every row only for its own bundle
 id (`Shared/BenchKey.swift`), so the scenarios with hundreds of thousands of rows run as
 measured.
