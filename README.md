@@ -461,7 +461,8 @@ thermal state, build configuration) and the date.
   window, the part off the screen too, but at this size the capture is costly (Gingham's 120 updates
   applied a second fell to 60 with it), so there the numbers to read are Gingham's presented frames,
   the updates applied, main thread busy and data age; the window server's GPU rate with nothing
-  changing is high at this size (about 85 ms a second), so its GPU column isn't comparable either.
+  changing varies at this size from set to set (about 85 ms a second in one, 0–8 in another), so
+  its GPU column isn't comparable either.
   A real 4K display at 60 Hz gives the same picture at half the rate.
 - **The data is the bench's**: the shapes and rates come from real feeds (a trading terminal, an
   order book, a market data firehose), but your app's data and columns are yours. The code is
@@ -478,13 +479,16 @@ thermal state, build configuration) and the date.
 Measured on 2026-11-24 with `Scripts/run-all.sh` (3 runs of 10 s each, medians) on a MacBook Pro
 (MacBookPro18,2, Apple M1 Max, 10 cores, 32 GB), macOS 27.2.1, Gingham 1.1.3, Release build: on
 the built-in display at 120 Hz in its "More Space" mode (2056 × 1329 points at 2×), and on an LG
-UltraFine 4K at 60 Hz (3840 × 2160 points at 1×). The full tables (every column, lowest and
+UltraFine 4K at 60 Hz (3840 × 2160 points at 1×). The built-in display's 3840 × 2160 set was
+measured again on 2026-11-25 with Gingham 1.1.4, whose only change is less GPU time of its own
+for large tables; the other sets stand as measured with 1.1.3. The full tables (every column, lowest and
 highest of the runs) and the raw JSON lines:
 
 - built-in display: [default window](results/2026-11-24-0906.md) ([JSON](results/2026-11-24-0906.jsonl)),
   [2040 × 1080](results/2026-11-24-1037.md) ([JSON](results/2026-11-24-1037.jsonl)),
-  [3840 × 2160](results/2026-11-24-1456.md) ([JSON](results/2026-11-24-1456.jsonl)) and its
-  [second set](results/2026-11-24-1215.md) ([JSON](results/2026-11-24-1215.jsonl));
+  [3840 × 2160](results/2026-11-25-0100.md) ([JSON](results/2026-11-25-0100.jsonl)) with Gingham
+  1.1.4, and with 1.1.3 [1456](results/2026-11-24-1456.md) ([JSON](results/2026-11-24-1456.jsonl)) and
+  [1215](results/2026-11-24-1215.md) ([JSON](results/2026-11-24-1215.jsonl));
 - the 4K display: [3700 × 1890](results/2026-11-24-1258.md) ([JSON](results/2026-11-24-1258.jsonl)),
   [3840 × 2160](results/2026-11-24-1345.md) ([JSON](results/2026-11-24-1345.jsonl)), the cell-based
   table's live trades [again](results/2026-11-24-1648.md) ([JSON](results/2026-11-24-1648.jsonl)).
@@ -558,22 +562,23 @@ full tables have the meter's and the trace's columns too.
 A 3840 × 2160-point table, larger than the MacBook's screen: what a 4K display at 120 Hz would
 show. Every engine lays out and draws all of it (107 rows of 20 points, SwiftUI's taller rows 89;
 the screen shows the top left). Presented (Gingham) or applied (the others) · main thread busy · data age.
+Gingham 1.1.4, 2026-11-25 ([results](results/2026-11-25-0100.md)).
 
 <!-- table: macbook-4k -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
 | --- | --- | --- | --- | --- |
-| Gingham | 120 presented · 26% · 4 ms | 116–120 presented · 50–68% · 4–6 ms | 115–120 presented · 44–67% · 5 ms | 120 presented · 79% · 6 ms |
-| NSTableView | 14 applied · 97% · 37 ms | 5 applied · 99% · 104 ms | 4 applied · 100% · 115 ms | 2 applied · 100% · 264 ms |
-| NSTableView, tuned | 19 applied · 97% · 28 ms | 6 applied · 99% · 84 ms | 16 applied · 96% · 31 ms | 7 applied · 99% · 75 ms |
-| NSTableView, cell-based | 40 applied · 98% · 14 ms | 17 applied · 99% · 31 ms | 37 applied · 99% · 14 ms | 20 applied · 99% · 28 ms |
-| NSCollectionView | 19 applied · 97% · 29 ms | 6 applied · 99% · 84 ms | 16 applied · 96% · 32 ms | 7 applied · 99% · 73 ms |
+| Gingham | 120 presented · 35% · 4 ms | 120 presented · 51% · 4 ms | 120 presented · 46% · 5 ms | 120 presented · 80% · 6 ms |
+| NSTableView | 14 applied · 97% · 37 ms | 5 applied · 100% · 101 ms | 4 applied · 100% · 114 ms | 2 applied · 100% · 263 ms |
+| NSTableView, tuned | 20 applied · 96% · 27 ms | 6 applied · 99% · 85 ms | 16 applied · 96% · 32 ms | 7 applied · 99% · 75 ms |
+| NSTableView, cell-based | 39 applied · 98% · 15 ms | 17 applied · 99% · 32 ms | 36 applied · 98% · 15 ms | 20 applied · 99% · 27 ms |
+| NSCollectionView | 20 applied · 96% · 28 ms | 6 applied · 99% · 86 ms | 16 applied · 96% · 32 ms | 7 applied · 99% · 75 ms |
 | SwiftUI Table | stuck | stuck | stuck | stuck |
-| SwiftUI Table, tuned | 1 applied · 100% · 1,031 ms | 0 applied · 100% · 4,479 ms | stuck | 0 applied · 100% · 5,995 ms |
+| SwiftUI Table, tuned | 1 applied · 100% · 1,047 ms | 0 applied · 100% · 4,487 ms | stuck | stuck |
 <!-- /table -->
 
-Gingham's wide trades and order book differ between the two sets measured the same way: 116 and
-115 presented at 68% and 67% busy in one ([1456](results/2026-11-24-1456.md)), 120 and 120 at 50%
-and 44% in the other ([1215](results/2026-11-24-1215.md)); hence the ranges.
+With Gingham 1.1.3, its wide trades and order book differed between two sets measured the same
+way: 116 and 115 presented at 68% and 67% busy in one ([1456](results/2026-11-24-1456.md)), 120 and
+120 at 50% and 44% in the other ([1215](results/2026-11-24-1215.md)). With 1.1.4 both are 120.
 
 ### Live data on a 4K display at 60 Hz (LG UltraFine, 3840 × 2160 points at 1×)
 

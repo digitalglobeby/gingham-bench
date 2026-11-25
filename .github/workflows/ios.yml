@@ -31,7 +31,7 @@ jobs:
     # Every job must pass (Gingham 1.1.1 builds with Xcode 26.0 and later).
     # `may-fail` stays for a version that can't, with a comment why.
     continue-on-error: ${{ matrix.may-fail }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -61,6 +61,17 @@ jobs:
           swift --version
       - name: Resolve the Gingham package
         run: xcodebuild -resolvePackageDependencies -project iOS/GinghamBench.xcodeproj -scheme "Gingham Bench"
+      # The runner image lacks some Xcodes' iOS platform (Xcode 26.0.1's iOS 26.0 on 2026-11-24), and
+      # without it xcodebuild finds no iOS destination at all: download it for that Xcode.
+      - name: Download the iOS platform if this Xcode lacks it
+        timeout-minutes: 20
+        run: |
+          if xcodebuild -showdestinations -project iOS/GinghamBench.xcodeproj -scheme "Gingham Bench" 2>&1 \
+              | grep -q "is not installed"; then
+            xcodebuild -downloadPlatform iOS
+          else
+            echo "The iOS platform is installed."
+          fi
       - name: Build the app and its UI tests for the iOS simulator (Release)
         run: |
           xcodebuild build-for-testing -project iOS/GinghamBench.xcodeproj -scheme "Gingham Bench" \

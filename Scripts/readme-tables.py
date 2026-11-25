@@ -163,9 +163,7 @@ DEFAULT_HEADERS = ["Live trades: 20,000 rows, ~44,800 changes/s", "Wide live tra
 TABLES = {
     "default": lambda: live_table("2026-11-24-0906.jsonl", "screen", headers=DEFAULT_HEADERS),
     "large": lambda: live_table("2026-11-24-1037.jsonl", "presented"),
-    "macbook-4k": lambda: live_table("2026-11-24-1456.jsonl", "presented", ranges={
-        ("gingham", "order-book"): ("2026-11-24-1215.jsonl",),
-        ("gingham", "wide-trades"): ("2026-11-24-1215.jsonl",)}),
+    "macbook-4k": lambda: live_table("2026-11-25-0100.jsonl", "presented"),
     "display-4k-fill": lambda: live_table("2026-11-24-1258.jsonl", "presented"),
     "display-4k": lambda: live_table("2026-11-24-1345.jsonl", "presented", overrides={
         ("nstable-cells", "live-trades"): "2026-11-24-1648.jsonl"}),
