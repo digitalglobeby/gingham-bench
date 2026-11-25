@@ -187,6 +187,10 @@ final class NSTableEngine: NSObject, Engine, NSTableViewDataSource, NSTableViewD
     var isSorting: Bool { false }
     var displayedRowCount: Int { tableView.numberOfRows }
 
+    private var scroller = ClipScroller()
+    func scroll(toY y: CGFloat) { scroller.scroll(scrollView, toY: y) }
+    var rowPitch: CGFloat { tableView.rowHeight + tableView.intercellSpacing.height }
+
     var rendered: (rows: Int, columns: Int)? {
         (tableView.rows(in: tableView.visibleRect).length, tableView.columnIndexes(in: tableView.visibleRect).count)
     }

@@ -10,6 +10,7 @@
 		122208FCE95D62D039DE2EC9 /* JSONReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 801125CD701B8E3382E54284 /* JSONReader.swift */; };
 		1A7CAACCCC05D97178241831 /* TunedRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A7551C8A49C6052A421EE4 /* TunedRows.swift */; };
 		1BEE3B969859F97FEF764053 /* BenchWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 071B327A40FCB4B9FB6E71D6 /* BenchWindow.swift */; };
+		1C4F9E3966F7B29CEE11E670 /* ScrollScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BEE1166C1DD043E7B096AE3 /* ScrollScenario.swift */; };
 		346BC2F334A3C7AA01FE8CA3 /* Engine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27E1F75EC4E7AF40DACE101E /* Engine.swift */; };
 		45CAD5EC79F3EDC660203A26 /* CollectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC00F04B7E7D1D45DA1B08D0 /* CollectionEngine.swift */; };
 		48CF500A73F1E10AB7197AD2 /* SyntheticScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545C86ECB84A2C2019F59DA4 /* SyntheticScenario.swift */; };
@@ -25,6 +26,7 @@
 		8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A809119AA85FC36961D2BF4 /* SortScenario.swift */; };
 		92879D9EC5D0B2B9B8330059 /* BinanceBookSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A441FB83BEF1D0492D93A5D /* BinanceBookSync.swift */; };
 		938DA0E7929E99F539937F80 /* CrashCatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F55DC968127DA0B506B841 /* CrashCatcher.swift */; };
+		94491254D4448718F931BCE1 /* SwiftUISlotsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AE46DD0FF1C8C55FA42D7 /* SwiftUISlotsEngine.swift */; };
 		9DD9017F9C9F25CE64590593 /* GinghamEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2026341A9B89FB5FE16CF1 /* GinghamEngine.swift */; };
 		9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04E10F329FCC5A688F002172 /* NSTableEngine.swift */; };
 		A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */; };
@@ -40,6 +42,7 @@
 		DBFB20A7FD257F070D95CD39 /* ScreenMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */; };
 		DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA70C66D0905A84B2844489E /* Runner.swift */; };
 		E2D1AD5A83613A47CEAE20A5 /* NSTableCellsEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */; };
+		E6E66A71CCC751BE44887AF2 /* Power.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3324BFB16EC7E4B996553D4 /* Power.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +66,7 @@
 		6B32872C90D5173DEADBBD10 /* BenchKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BenchKey.swift; path = ../Shared/BenchKey.swift; sourceTree = "<group>"; };
 		7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSTableTunedEngine.swift; sourceTree = "<group>"; };
 		801125CD701B8E3382E54284 /* JSONReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONReader.swift; sourceTree = "<group>"; };
+		8BEE1166C1DD043E7B096AE3 /* ScrollScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollScenario.swift; sourceTree = "<group>"; };
 		9C1544288EA66E022C7CB883 /* Interactive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactive.swift; sourceTree = "<group>"; };
 		9E8DA00D78673FB9012A6760 /* NSTableCellsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSTableCellsEngine.swift; sourceTree = "<group>"; };
 		AA70C66D0905A84B2844489E /* Runner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner.swift; sourceTree = "<group>"; };
@@ -71,9 +75,11 @@
 		C8A7551C8A49C6052A421EE4 /* TunedRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunedRows.swift; sourceTree = "<group>"; };
 		DA2026341A9B89FB5FE16CF1 /* GinghamEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GinghamEngine.swift; sourceTree = "<group>"; };
 		E4E141FD4035276654B386B9 /* FeedGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedGenerator.swift; sourceTree = "<group>"; };
+		E81AE46DD0FF1C8C55FA42D7 /* SwiftUISlotsEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUISlotsEngine.swift; sourceTree = "<group>"; };
 		E82D253D06EE35D0B84A56A2 /* Columns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Columns.swift; sourceTree = "<group>"; };
 		EB417713D2BF803522623279 /* TraceFrames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceFrames.swift; sourceTree = "<group>"; };
 		EC00F04B7E7D1D45DA1B08D0 /* CollectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionEngine.swift; sourceTree = "<group>"; };
+		F3324BFB16EC7E4B996553D4 /* Power.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Power.swift; sourceTree = "<group>"; };
 		F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenMeter.swift; sourceTree = "<group>"; };
 		FB0E747B4E6890ECFB1F0CC4 /* GinghamBench.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GinghamBench.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -95,6 +101,7 @@
 			children = (
 				E4E141FD4035276654B386B9 /* FeedGenerator.swift */,
 				0F80A147CA85B939AA0DFC02 /* Scenario.swift */,
+				8BEE1166C1DD043E7B096AE3 /* ScrollScenario.swift */,
 				6A809119AA85FC36961D2BF4 /* SortScenario.swift */,
 				545C86ECB84A2C2019F59DA4 /* SyntheticScenario.swift */,
 			);
@@ -138,6 +145,7 @@
 			children = (
 				29F55DC968127DA0B506B841 /* CrashCatcher.swift */,
 				00B3E5852E80F3F093036088 /* Meter.swift */,
+				F3324BFB16EC7E4B996553D4 /* Power.swift */,
 				598A062B7F93CBD847E38015 /* Report.swift */,
 				AA70C66D0905A84B2844489E /* Runner.swift */,
 				F7DBC129F9A59E75EEE19BFF /* ScreenMeter.swift */,
@@ -157,6 +165,7 @@
 				04E10F329FCC5A688F002172 /* NSTableEngine.swift */,
 				7163B8C25B91A2D961537F88 /* NSTableTunedEngine.swift */,
 				6235676D51BB0A263D0F5899 /* SwiftUIEngine.swift */,
+				E81AE46DD0FF1C8C55FA42D7 /* SwiftUISlotsEngine.swift */,
 				5C55F6B6DA9FC9AD0409FD08 /* SwiftUITunedEngine.swift */,
 				C8A7551C8A49C6052A421EE4 /* TunedRows.swift */,
 			);
@@ -285,13 +294,16 @@
 				9F69157EB6FD9F223DD1FF68 /* NSTableEngine.swift in Sources */,
 				A1313075139D5CCE9427458B /* NSTableTunedEngine.swift in Sources */,
 				BE3F08E2141A431C869C4238 /* Options.swift in Sources */,
+				E6E66A71CCC751BE44887AF2 /* Power.swift in Sources */,
 				80A5291E965FB5754E58DB4B /* Report.swift in Sources */,
 				DE524CF324ABCD3CAC04A40E /* Runner.swift in Sources */,
 				4A6C26AA4EAA8F10587D4B1E /* Scenario.swift in Sources */,
 				DBFB20A7FD257F070D95CD39 /* ScreenMeter.swift in Sources */,
+				1C4F9E3966F7B29CEE11E670 /* ScrollScenario.swift in Sources */,
 				B136A1C5B62DB5234195A686 /* SelfTest.swift in Sources */,
 				8D1929DF7AA87483E7685861 /* SortScenario.swift in Sources */,
 				50C7F18539AF31AA97AE9C61 /* SwiftUIEngine.swift in Sources */,
+				94491254D4448718F931BCE1 /* SwiftUISlotsEngine.swift in Sources */,
 				B0BCA84C18CF9144672C3C95 /* SwiftUITunedEngine.swift in Sources */,
 				48CF500A73F1E10AB7197AD2 /* SyntheticScenario.swift in Sources */,
 				D6631478D8C1D90F22984E4A /* TraceFrames.swift in Sources */,
@@ -307,6 +319,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				BENCH_COMMIT = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GinghamBench/Info.plist;
@@ -390,6 +403,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				BENCH_COMMIT = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GinghamBench/Info.plist;

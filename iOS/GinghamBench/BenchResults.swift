@@ -122,6 +122,10 @@ struct BenchRunResult: Codable {
     var scrollingView: String
     var thermalStateStart: String
     var thermalStateWorst: String
+    /// What made the result, in every line: the bench repository's commit (set by
+    /// Scripts/run-device.sh; empty from Xcode) and Gingham's version.
+    var benchCommit: String = BenchBuild.current.benchCommit
+    var gingham: String = GHTableView.version
 }
 
 /// An engine's runs of one test together: medians, and the worst of each figure.

@@ -2,6 +2,7 @@
 """Summarizes an Instruments "Animation Hitches" trace of Gingham Bench.
 
     python3 -I iOS/Scripts/hitches-summary.py <trace> > summary.json
+    python3 -I iOS/Scripts/hitches-summary.py --combine <summary.json>... > combined.json
 
 Exports the trace's tables with `xctrace export` and reports, from the render
 server's hitches (not the app's own meter): the hitches in each of the app's
@@ -10,7 +11,13 @@ os_signpost instrument), their count, total time and hitch time ratio (ms of
 hitches per second), and the same over the whole recording. It lists the
 tables it found, so a change in Instruments' table names shows up instead of
 silently giving zeros. Run-device.sh calls it after each recording.
+
+With --combine, the summaries of several recordings (run-device.sh makes three
+per engine) become one: for each engine and test, the hitch time ratio and the
+hitches of every recording, their median, lowest and highest.
 """
+
+import statistics
 
 import json
 import subprocess
@@ -61,7 +68,33 @@ def number(value):
         return None
 
 
+def combine(paths):
+    """Each engine's tests over the recordings (test labels: "<engine> <test> run <n>")."""
+    tests = {}
+    for path in paths:
+        summary = json.load(open(path))
+        for test in summary.get("tests", []):
+            words = test["test"].split(" run ")[0].rsplit(" ", 1)
+            if len(words) != 2:
+                continue
+            engine, profile = words
+            entry = tests.setdefault((engine, profile), {"engine": engine, "test": profile, "recordings": []})
+            entry["recordings"].append({"trace": summary.get("trace"), "hitches": test["hitches"],
+                                        "hitchTimeMsPerSecond": test["hitchTimeMsPerSecond"]})
+    combined = []
+    for entry in tests.values():
+        ratios = [r["hitchTimeMsPerSecond"] for r in entry["recordings"]]
+        entry.update({"count": len(ratios), "medianHitchTimeMsPerSecond": round(statistics.median(ratios), 1),
+                      "lowestHitchTimeMsPerSecond": min(ratios), "highestHitchTimeMsPerSecond": max(ratios)})
+        combined.append(entry)
+    json.dump({"recordings": [str(Path(p).name) for p in paths], "tests": combined}, sys.stdout, indent=2)
+    print()
+
+
 def main():
+    if sys.argv[1] == "--combine":
+        combine(sys.argv[2:])
+        return
     trace = sys.argv[1]
     toc = export(trace, "--toc")
     schemas = table_schemas(toc)

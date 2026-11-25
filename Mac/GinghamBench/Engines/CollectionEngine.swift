@@ -178,7 +178,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
             let row = rows.sourceRow(atDisplay: path.item)
             guard row >= 0, row < source.rowCount else { continue }
             for column in added where column < item.cells.count {
-                item.cells[column].show(BenchFormat.text(source, row: row, column: column))
+                item.cells[column].show(BenchFormat.tunedText(source, row: row, column: column))
             }
         }
     }
@@ -228,7 +228,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         for refresh in ended.refreshes where refresh.display < shownCount {
             guard let item = collectionView.item(at: IndexPath(item: refresh.display, section: 0)) as? Item else { continue }
             for column in refresh.allColumns ? all : ended.columns where column < item.cells.count && shownColumns.contains(column) {
-                item.cells[column].show(BenchFormat.text(source, row: refresh.row, column: column))
+                item.cells[column].show(BenchFormat.tunedText(source, row: refresh.row, column: column))
             }
         }
         guard ended.countChanged else { return }
@@ -254,6 +254,10 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
     var isSorting: Bool { rows.isSorting }
     var desyncCount: Int { rows.desyncs }
     var displayedRowCount: Int { collectionView.numberOfItems(inSection: 0) }
+
+    private var scroller = ClipScroller()
+    func scroll(toY y: CGFloat) { scroller.scroll(scrollView, toY: y) }
+    var rowPitch: CGFloat { layout.rowHeight }
 
     /// The items realized (NSCollectionView makes items for what its visible rect shows) and the
     /// labels shown in one (the columns in view).
@@ -291,7 +295,7 @@ final class CollectionEngine: NSObject, Engine, NSCollectionViewDataSource {
         item.show(columns: shownColumns)
         let row = rows.sourceRow(atDisplay: indexPath.item)
         for column in shownColumns where column < item.cells.count {
-            item.cells[column].show(row >= 0 && row < source.rowCount ? BenchFormat.text(source, row: row, column: column) : "")
+            item.cells[column].show(row >= 0 && row < source.rowCount ? BenchFormat.tunedText(source, row: row, column: column) : "")
         }
         return item
     }

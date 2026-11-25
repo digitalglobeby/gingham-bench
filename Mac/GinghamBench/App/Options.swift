@@ -8,15 +8,19 @@
 //    "Gingham Bench" --scenario live-trades --engine all --seconds 10 --runs 3 --output results/run.jsonl
 //
 //    --scenario <id|all|live>  live-trades, order-book, trade-feed, wide-trades (live trades with 24 columns),
-//                              binance-tickers, binance-books, sort-text (by pair), sort-text-account; "all";
-//                              "live" (no sorts); a comma list
+//                              quiet-table (5,000 trades, 10 changes a second), scroll (a static table scrolled),
+//                              binance-tickers, binance-books, sort-text (by pair), sort-text-account,
+//                              sort-number (by amount); "all"; "live" (no sorts); a comma list
 //    --engine <id|all>         gingham, nstable, nstable-tuned, nstable-cells, collection, swiftui,
-//                              swiftui-tuned; "all"; a comma list
+//                              swiftui-tuned, swiftui-slots; "all"; a comma list
 //    --seconds N               measured seconds per run (10)
 //    --warmup N                seconds after the rows show before measuring (3; Binance 5)
 //    --runs N                  runs of each engine (3), each in a new process
 //    --output PATH             JSON lines appended here; the Markdown table goes next to it (.md)
 //    --rows N                  another number of rows than the scenario's
+//    --update-rate N           changes applied N times a second (e.g. 30 or 60), for every engine alike, as an app
+//                              that coalesces its updates does; the display link still runs at the display's rate
+//                              (default: at every display-link callback, as often as the engine takes them)
 //    --binance-domain D        binance.com (or binance.us)
 //    --load-timeout N          seconds an engine may take to show its rows (30)
 //    --window WxH              the window's content size (1000x640); larger than the screen, e.g. 3840x2160 on a
@@ -27,6 +31,9 @@
 //    --swiftui-diff-moves      the tuned SwiftUI Table gets reordered rows without a new .id (SwiftUI diffs the moves)
 //    --summarize PATH          only writes the Markdown table of a JSON lines file (to --markdown or stdout);
 //                              for results without them, --window WxH and --display TEXT give the header's sizes
+//    --power FILE              a powermetrics recording of the session (see Measure/Power.swift): the Mac's CPU and GPU
+//                              power in each run's measured window is added to its result (after the runs, or with
+//                              --summarize to the file summarized)
 //    --check-formats           prints where the other engines' number text differs from Gingham's
 //    --self-test               replays order book changes into every engine (no network) and checks their order
 //    --crash-reports           a crashing run is left to macOS (its report and dialog) instead of reported as "crashed"
@@ -50,6 +57,8 @@ struct Options {
     var run = 1
     var output: String?
     var rows: Int?
+    /// `--update-rate`: changes applied this many times a second (nil: at every display-link callback).
+    var updateRate: Double?
     var calibrateFeed: String?
     var binanceDomain = "binance.com"
     var loadTimeout: Double = 30
@@ -59,6 +68,8 @@ struct Options {
     var ginghamExtras = false
     var swiftUIDiffsMoves = false
     var summarize: String?
+    /// `--power`: a powermetrics recording (plist samples) to take the Mac's power from.
+    var powerFile: String?
     var markdown: String?
     var windowGiven = false
     var display: String?
@@ -125,6 +136,10 @@ struct Options {
             case "--run": options.run = Int(try number(argument))
             case "--output": options.output = try value(argument)
             case "--rows": options.rows = Int(try number(argument))
+            case "--update-rate":
+                let rate = try number(argument)
+                guard rate > 0 else { throw ScenarioError("--update-rate: a number of updates a second above 0") }
+                options.updateRate = rate
             case "--calibrate-feed": options.calibrateFeed = try value(argument)
             case "--binance-domain": options.binanceDomain = try value(argument)
             case "--load-timeout": options.loadTimeout = try number(argument)
@@ -136,6 +151,7 @@ struct Options {
             case "--gingham-extras": options.ginghamExtras = true
             case "--swiftui-diff-moves": options.swiftUIDiffsMoves = true
             case "--summarize": options.summarize = try value(argument)
+            case "--power": options.powerFile = (try value(argument) as NSString).expandingTildeInPath
             case "--markdown": options.markdown = try value(argument)
             case "--display": options.display = try value(argument)
             case "--check-formats": options.checkFormats = true
@@ -175,6 +191,7 @@ struct Options {
                          "--binance-domain", binanceDomain, "-ApplePersistenceIgnoreState", "YES"]
         if let warmup { arguments += ["--warmup", String(warmup)] }
         if let rows { arguments += ["--rows", String(rows)] }
+        if let updateRate { arguments += ["--update-rate", String(updateRate)] }
         if ginghamExtras { arguments.append("--gingham-extras") }
         if swiftUIDiffsMoves { arguments.append("--swiftui-diff-moves") }
         if crashReports { arguments.append("--crash-reports") }

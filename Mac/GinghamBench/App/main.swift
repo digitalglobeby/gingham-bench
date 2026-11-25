@@ -54,6 +54,7 @@ if options.selfTest {
 }
 
 if let path = options.summarize {
+    if let recording = options.powerFile { FileHandle.standardError.write(Data((PowerMetrics.attach(recording: recording, to: path) + "\n").utf8)) }
     if options.windowGiven { Report.fallbackWindow = "\(Int(options.windowSize.width))x\(Int(options.windowSize.height))" }
     Report.fallbackDisplay = options.display
     let markdown = Report.markdown(Report.read(path))

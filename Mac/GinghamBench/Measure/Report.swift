@@ -25,6 +25,9 @@ nonisolated struct Machine: Codable, Sendable {
     var lowPowerMode: Bool
     var thermalState: String
     var build: String
+    /// The bench repository's commit the app was built from (`Scripts/bench-commit.sh`, "-modified"
+    /// when its sources differed from it); nil when built without the scripts (from Xcode).
+    var benchCommit: String?
 
     @MainActor static func current(screen: NSScreen?) -> Machine {
         func sysctl(_ name: String) -> String {
@@ -42,13 +45,14 @@ nonisolated struct Machine: Codable, Sendable {
         let build = "Release"
         #endif
         let version = info.operatingSystemVersion
+        let commit = (Bundle.main.object(forInfoDictionaryKey: "GinghamBenchCommit") as? String).flatMap { $0.isEmpty ? nil : $0 }
         return Machine(model: sysctl("hw.model"), chip: sysctl("machdep.cpu.brand_string"), cores: info.activeProcessorCount,
                        memoryGB: Int(info.physicalMemory / 1_073_741_824),
                        macOS: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
                        gingham: GHTableView.version, screen: screen?.localizedName ?? "?",
                        refreshRate: screen?.maximumFramesPerSecond ?? 0,
                        screenPoints: screen.map { "\(Int($0.frame.width))x\(Int($0.frame.height))" }, screenScale: screen.map { Double($0.backingScaleFactor) },
-                       lowPowerMode: info.isLowPowerModeEnabled, thermalState: thermal, build: build)
+                       lowPowerMode: info.isLowPowerModeEnabled, thermalState: thermal, build: build, benchCommit: commit)
     }
 
     static func thermalName(_ state: Int) -> String {
@@ -63,6 +67,7 @@ nonisolated struct Machine: Codable, Sendable {
 
     var line: String {
         "\(model), \(chip), \(cores) cores, \(memoryGB) GB, macOS \(macOS), Gingham \(gingham), \(screen) at \(refreshRate) Hz, \(build) build"
+            + ", bench \(benchCommit ?? "commit not recorded")"
             + (lowPowerMode ? ", LOW POWER MODE ON" : "") + (thermalState != "nominal" ? ", thermal state \(thermalState)" : "")
     }
 }
@@ -84,7 +89,8 @@ nonisolated struct SystemFrames: Codable, Sendable {
 }
 
 nonisolated struct SortNumbers: Codable, Sendable {
-    /// "first" (the first sort in the process, cold), "other" (the other text column), "again"
+    /// "first" (the first sort in the process, cold), "other" (the other column: the other text
+    /// column, or price after amount), "again"
     /// (the first column again); nil in results from before (three sorts of the same column).
     var step: String?
     /// The column sorted by.
@@ -108,6 +114,9 @@ nonisolated struct RunResult: Codable, Sendable {
     /// round), and the seconds waited after it for the window server to settle.
     var after: String?
     var settleSeconds: Double?
+    /// `--update-rate`: the changes applied this many times a second (nil: at every display-link
+    /// callback).
+    var updateRate: Double?
     /// ok; timeout (no rows within the load timeout, or a sort step too long); stuck (the main
     /// thread didn't come back after the window); invalid (the window was covered or the screen
     /// locked during the run); error.
@@ -121,7 +130,7 @@ nonisolated struct RunResult: Codable, Sendable {
     var numbers: RunNumbers?
     var sorts: [SortNumbers]?
     /// The order shown checked against the store after the run (live scenarios: stopped, then
-    /// every row in its place; sorts: Finder's order all the way down): "ok" or what's wrong.
+    /// every row in its place; sorts: the column's order all the way down, text in Finder's): "ok" or what's wrong.
     var orderCheck: String?
     /// The screen meter's state: "running", or why there are no screen numbers.
     var screenMeter: String?
@@ -144,6 +153,8 @@ nonisolated struct RunResult: Codable, Sendable {
     /// (should be about 0 screen updates while the callbacks go on).
     var quietScreenUpdatesPerSecond: Double?
     var quietCallbacksPerSecond: Double?
+    /// The Mac's power during the measured window, from a powermetrics recording (`--power`).
+    var power: PowerNumbers?
     var machine: Machine
     var date: String
 
@@ -223,9 +234,15 @@ nonisolated enum Report {
         if let window { setup.append("Table window \(times(window)) points" + (pixels.map { " (\(times($0)) pixels)" } ?? "")) }
         if windows.count > 1 { setup.append("several window sizes: \(windows.sorted().map(times).joined(separator: ", ")) points") }
         if let display { setup.append("display \(display)") }
-        if let shown = results.compactMap(\.onScreen).first, let window {
-            let screen = window == "3840x2160" ? "4K display" : "\(times(window))-point display"
-            setup.append("a table larger than the screen (\(times(shown)) points of the window on it): what a \(screen) at \(first.machine.refreshRate) Hz would show")
+        let rates = Set(results.filter { !(ScenarioID(rawValue: $0.scenario)?.isSort ?? false) }.map { $0.updateRate.map { "\(Int($0))" } ?? "every callback" })
+        if rates.count == 1, let rate = rates.first, rate != "every callback" {
+            setup.append("changes applied \(rate) times a second (--update-rate \(rate)), the display link at the display's rate")
+        } else if rates.count > 1 {
+            setup.append("several update rates: \(rates.sorted().joined(separator: ", "))")
+        }
+        if let shown = results.compactMap(\.onScreen).first, window != nil {
+            // (Every engine lays out and draws all of it; the window server composites the part on the screen.)
+            setup.append("a table larger than the screen: \(times(shown)) points of the window on it")
         }
         if !setup.isEmpty { lines += [setup.joined(separator: " · "), ""] }
         let machines = Set(results.map(\.machine.line))
@@ -238,11 +255,11 @@ nonisolated enum Report {
             lines.append("## \(id?.title ?? scenario)")
             lines.append("")
             if id?.isSort == true {
-                lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Finder's order | Quiet: frames with new data/s · callbacks/s | Runs |")
+                lines.append("| Engine | First sort (cold) | The other column | The first column again | Frames during: first · again | Longest stall: first · again | Order | Quiet: frames with new data/s · callbacks/s | Runs |")
                 lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             } else {
-                lines.append("| Engine | Frames with new data/s (max = the display's rate, \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | GPU | Window server GPU · idle | GPU, process + window server | CPU energy | Memory | Order | Runs |")
-                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+                lines.append("| Engine | Frames with new data/s (max = the display's rate, \(first.machine.refreshRate)) | System frames/s (trace) | Updates applied/s | Data age p50 / p99 | Main thread busy | Longest stall | Callbacks/s | Changes applied/s | CPU | Mac power: CPU + GPU · an update | GPU clock · active | Window server CPU | Memory | GPU time | Window server GPU time · idle | GPU time, process + window server | CPU energy | Order | Runs |")
+                lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
             }
             var laidOut: [String] = []
             for engine in EngineKind.allCases.map(\.rawValue) {
@@ -306,7 +323,7 @@ nonisolated enum Report {
                             return "\(status) (\(failed.count)/\(runs.count))"
                         } ?? "—"
                         if !screens.isEmpty { first += "; screen pass \(median(screens))" }
-                        lines.append("| \(title) | \(first) | \(traced.isEmpty ? "—" : median(traced)) | | | | | | | | | | | | | | \(runs.count) |")
+                        lines.append("| \(title) | \(first) | \(traced.isEmpty ? "—" : median(traced)) | | | | | | | | | | | | | | | | | \(runs.count) |")
                         continue
                     }
                     var changes = median(numbers.map(\.changesPerSecond))
@@ -322,14 +339,33 @@ nonisolated enum Report {
                     let screen = screens.isEmpty ? "— (" + (failedScreen.map { "screen run \($0.status): \($0.note ?? "")" } ?? ok.first?.screenMeter ?? "no meter") + ")"
                         : median(screens) + (shares.isEmpty ? "" : ", \(median(shares.map { $0 * 100 }))% changed")
                     let tracedText = slowedByTrace ? "— (the recording slowed the run)" : traced.isEmpty ? "—" : median(traced)
-                    lines.append("| \(title) | \(screen) | \(tracedText) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) · idle \(span(numbers.compactMap(\.windowServerGPUBaselineMsPerSecond))) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(order) | \(runCount) |")
+                    // The Mac's power, from a powermetrics recording (`--power`).
+                    let powers = ok.compactMap(\.power)
+                    var power = "—", clock = "—", serverCPU = "—"
+                    if !powers.isEmpty {
+                        let simple = { (values: [Double], suffix: String) in median(values, suffix: suffix).components(separatedBy: " (").first ?? "—" }
+                        power = median(powers.map(\.combinedMilliwatts), suffix: " mW") + ": " + simple(powers.map(\.cpuMilliwatts), "")
+                            + " + " + simple(powers.map(\.gpuMilliwatts), "")
+                        let perUpdate = powers.compactMap(\.millijoulesPerUpdate)
+                        if !perUpdate.isEmpty { power += " · " + simple(perUpdate, " mJ") }
+                        let clocks = powers.compactMap(\.gpuMHz)
+                        clock = (clocks.isEmpty ? "idle" : simple(clocks, " MHz")) + " · " + simple(powers.map { $0.gpuActiveShare * 100 }, "%")
+                        let servers = powers.compactMap(\.windowServerCPUPercent)
+                        if !servers.isEmpty { serverCPU = median(servers, suffix: "%") }
+                    }
+                    lines.append("| \(title) | \(screen) | \(tracedText) | \(updates) | \(ages) | \(median(numbers.map { $0.busyShare * 100 }, suffix: "%")) | \(median(numbers.map(\.longestStallMs), suffix: " ms")) | \(median(numbers.map(\.callbacksPerSecond))) | \(changes) | \(median(numbers.compactMap(\.cpuPercent), suffix: "%")) | \(power) | \(clock) | \(serverCPU) | \(median(numbers.compactMap(\.memoryMB), suffix: " MB")) | \(median(numbers.compactMap(\.gpuMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.windowServerGPUMsPerSecond), digits: 1, suffix: " ms/s")) · idle \(span(numbers.compactMap(\.windowServerGPUBaselineMsPerSecond))) | \(median(numbers.compactMap(\.totalGPUMsPerSecond), digits: 1, suffix: " ms/s")) | \(median(numbers.compactMap(\.energyMilliwatts), suffix: " mW")) | \(order) | \(runCount) |")
                 }
             }
             lines.append("")
             if id?.isSort == true {
                 lines += ["Three sorts in each run's process, each from the unsorted order and timed to the first frame showing the",
-                          "new order: the column (the first sort in the process, cold), the other text column, the first column again (a",
+                          "new order: the column (the first sort in the process, cold), the other column (the other text column; price",
+                          "after amount), the first column again (a",
                           "repeated sort: the tuned engines keep the keys of the last sorted columns, the typical ones sort from scratch).", ""]
+            }
+            if id?.isScroll == true {
+                lines += ["Scrolling: every display-link callback moves the table to where the steady speed puts it at that time (a late",
+                          "callback moves it further, as under a finger); an update applied is a step of the scroll, and there's no data age.", ""]
             }
             if id?.isSort != true {
                 lines += ["Frames with new data: how many times a second the table's picture actually changed (at least one visible",
@@ -361,19 +397,26 @@ nonisolated enum Report {
                   "median share of the table's body that changed in one. System frames/s (trace): the window's frames the system showed",
                   "(an Instruments trace of one more run: the process's Core Animation commits that reached the display, plus its GPU",
                   "frames the window server composited); commits include the top bar's. Updates applied/s: display-link callbacks that applied new data",
-                  "(at most the screen's refresh rate). *Presented: frames that reached the screen; only Gingham can report it",
-                  "(`GHTableView.framePresented`), no other engine has a way to tell. Data age: from the time a change was due",
+                  "(at most the screen's refresh rate, or the --update-rate). *Presented: frames that reached the screen; only Gingham",
+                  "can report it (`GHTableView.framePresented`), no other engine has a way to tell; like an update applied, it counts a",
+                  "frame whether or not a visible value changed (both are upper bounds of the frames with new data). Data age: from the time a change was due",
                   "(Binance: its arrival) to the start of the callback that applied it (that frame's apply, layout, commit and",
                   "presentation not included).",
                   "Main thread busy: share of time its run loop wasn't waiting. Longest stall: the longest time between two callbacks.",
-                  "Callbacks/s: display-link callbacks the main thread got to. CPU: all threads, 100% = one core. GPU: the process's GPU",
-                  "time and the window server's above its rate with the table shown and nothing changing (it composites all apps;",
-                  "AppKit's drawing is composited there, Gingham's GPU work counts as the process's), and their sum, ms a second; idle: the",
-                  "window server's rate with the table shown and nothing changing, which depends on what else the screen shows (a high or",
-                  "very different one means the screen wasn't quiet: compare the window server's numbers only within a quiet session). CPU energy: the process's,",
-                  "as the kernel accounts it (task_energy): not its GPU work, not the window server's; not total energy. The",
-                  "window server's CPU time isn't measured. Order: the order shown,",
-                  "checked against the store after the run. See the README for how each engine is set up.", ""]
+                  "Callbacks/s: display-link callbacks the main thread got to. CPU: the process's, all threads, 100% = one core.",
+                  "Mac power: the whole Mac's CPU and GPU power (powermetrics' combined power: every process, the window server's",
+                  "compositing included; not the display or memory), the median of the samples inside the measured window, then the CPU's",
+                  "and the GPU's, and the energy an update (the power over the updates applied a second); with the GPU's clock in its",
+                  "active samples and the share of time it was active, and the window server's CPU (100% = one core). From a powermetrics",
+                  "recording of the session (--power; \"—\" without one). Memory: the process's largest physical footprint.",
+                  "GPU time: the process's GPU time and the window server's above its rate with the table shown and nothing changing (it",
+                  "composites all apps; AppKit's drawing is composited there, Gingham's GPU work counts as the process's), and their sum,",
+                  "ms a second: time at whatever clock the GPU ran, not work or energy (the clock follows the load: on a quiet screen it",
+                  "may stay at its lowest for every engine, and the same work takes longer there), so compare costs by the Mac's power.",
+                  "idle: the window server's GPU rate with the table shown and nothing changing, which depends on what else the screen",
+                  "shows (a high or very different one means the screen wasn't quiet). CPU energy: the process's, as the kernel accounts it",
+                  "(task_energy): not its GPU work, not the window server's; not total energy. Order: the order shown, checked against",
+                  "the store after the run. See the README for how each engine is set up.", ""]
         return lines.joined(separator: "\n")
     }
 }

@@ -23,6 +23,7 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
     case collection
     case swiftui
     case swiftuiTuned = "swiftui-tuned"
+    case swiftuiSlots = "swiftui-slots"
 
     var title: String {
         switch self {
@@ -33,6 +34,7 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .collection: "NSCollectionView"
         case .swiftui: "SwiftUI Table"
         case .swiftuiTuned: "SwiftUI Table, tuned"
+        case .swiftuiSlots: "SwiftUI Table, slots"
         }
     }
 
@@ -45,7 +47,8 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .nstableCells: "NSCell-based, changed cells redrawn, incremental sort"
         case .collection: "custom row layout, incremental sort, in-place item updates"
         case .swiftui: "@Observable rows, sortOrder binding"
-        case .swiftuiTuned: "@Observable row objects, static columns, incremental sort"
+        case .swiftuiTuned: "@Observable row objects, static columns, incremental sort, rows rebuilt on reorder"
+        case .swiftuiSlots: "rows identified by place, values written into them, incremental sort"
         }
     }
 
@@ -58,6 +61,7 @@ nonisolated enum EngineKind: String, CaseIterable, Sendable {
         case .collection: CollectionEngine()
         case .swiftui: SwiftUIEngine()
         case .swiftuiTuned: SwiftUITunedEngine()
+        case .swiftuiSlots: SwiftUISlotsEngine()
         }
     }
 }
@@ -98,6 +102,27 @@ protocol Engine: AnyObject {
     func shownTexts() -> [(display: Int, column: Int, text: String)]
     /// Called when a frame drawn by the engine is on the screen, if the engine can tell (Gingham).
     var framePresented: (() -> Void)? { get set }
+    /// Scrolls so that `y` points of rows are above where they started (the scroll scenario), by
+    /// the engine's own means of scrolling.
+    func scroll(toY y: CGFloat)
+    /// A row's height on the screen, spacing included: the scroll scenario moves every engine by
+    /// the same rows a second.
+    var rowPitch: CGFloat { get }
+}
+
+/// Scrolls an NSScrollView's rows as its own scrolling does: the clip view moved from where it
+/// started, the scrollers told.
+struct ClipScroller {
+    private var origin: CGFloat?
+
+    mutating func scroll(_ scrollView: NSScrollView?, toY y: CGFloat) {
+        guard let scrollView else { return }
+        let clip = scrollView.contentView
+        let top = origin ?? clip.bounds.origin.y
+        origin = top
+        clip.scroll(to: NSPoint(x: clip.bounds.origin.x, y: top + y))
+        scrollView.reflectScrolledClipView(clip)
+    }
 }
 
 extension Engine {

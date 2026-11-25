@@ -27,9 +27,12 @@ final class InteractiveController: NSObject {
     private var sortedAscending = false
     private var cycled = 0
     private var lastBarUpdate: CFTimeInterval = 0
+    /// `--update-rate`: when the changes are applied.
+    private var pacer: UpdatePacer?
 
     init(options: Options) {
         self.options = options
+        pacer = options.updateRate.map { UpdatePacer(rate: $0) }
         scenarioID = options.initialScenario
         kind = options.initialEngine
         ui = BenchWindow(size: options.windowSize, interactive: true)
@@ -157,7 +160,7 @@ final class InteractiveController: NSObject {
     }
 
     private func frame(_ now: CFTimeInterval) {
-        if let engine, let scenario {
+        if let engine, let scenario, pacer?.isDue(now, refreshRate: meter.refreshRate) ?? true {
             meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
             if let start = sortStart, !engine.isSorting {
                 sortStart = nil
@@ -169,7 +172,8 @@ final class InteractiveController: NSObject {
             let second = meter.data.lastSecond(now: now)
             if engine != nil {
                 ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age,
-                              screen: screenMeter?.state == "running" ? second.screen : nil, refreshRate: meter.refreshRate)
+                              screen: screenMeter?.state == "running" ? second.screen : nil,
+                              refreshRate: pacer.map { min(Int($0.rate), meter.refreshRate) } ?? meter.refreshRate)
             }
         }
     }

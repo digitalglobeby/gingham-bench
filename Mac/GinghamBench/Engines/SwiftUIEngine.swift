@@ -255,7 +255,8 @@ final class SwiftUIEngine: Engine {
         return (innerTable?.numberOfRows ?? 0) > 0 || source?.rowCount == 0
     }
 
-    private static func findTable(in view: NSView) -> NSTableView? {
+    /// The NSTableView SwiftUI's Table is made of, inside a hosting view.
+    static func findTable(in view: NSView) -> NSTableView? {
         if let table = view as? NSTableView { return table }
         for subview in view.subviews {
             if let table = findTable(in: subview) { return table }
@@ -264,6 +265,18 @@ final class SwiftUIEngine: Engine {
     }
 
     var displayedRowCount: Int { model.rows.count }
+
+    /// Scrolled through the scroll view SwiftUI's Table puts its NSTableView in.
+    private var scroller = ClipScroller()
+    func scroll(toY y: CGFloat) {
+        if innerTable == nil { innerTable = SwiftUIEngine.findTable(in: view) }
+        scroller.scroll(innerTable?.enclosingScrollView, toY: y)
+    }
+    var rowPitch: CGFloat {
+        if innerTable == nil { innerTable = SwiftUIEngine.findTable(in: view) }
+        guard let table = innerTable else { return 24 }
+        return table.rowHeight + table.intercellSpacing.height
+    }
 
     /// The rows and columns of the NSTableView SwiftUI's Table is made of, in its visible rect.
     var rendered: (rows: Int, columns: Int)? {

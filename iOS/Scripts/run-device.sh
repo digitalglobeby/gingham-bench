@@ -10,9 +10,12 @@
 #   --ui-tests  real flicks by XCUITest, measured by the system
 #               (XCTOSSignpostMetric: the render server's hitch time ratio
 #               and frame rate). The .xcresult and its metrics as JSON.
-#   --hitches   Instruments' Animation Hitches, one recording per engine
-#               while the app runs its tests: every hitch the render server
-#               saw, attributed to each test. The .trace files and a summary.
+#   --hitches   Instruments' Animation Hitches, three recordings per engine
+#               (GINGHAM_BENCH_HITCH_RUNS), engines in turn and in another order
+#               each round, while the app runs its tests: every hitch the render
+#               server saw, attributed to each test. The .trace files, a summary
+#               of each and ios-hitches-<date>.json with each engine's tests over
+#               the recordings (median, lowest, highest).
 #   --all       all three.
 #
 #   iOS/Scripts/run-device.sh [--device UDID] [--no-build] [modes] [-- app arguments]
@@ -27,7 +30,7 @@
 # Before running: the device unlocked and awake (the app keeps the screen on),
 # Low Power Mode off, no keyboard attached, at room temperature, other apps
 # closed; don't touch it while it runs. --app takes about 20 minutes, --ui-tests
-# about 25, --hitches about 10. Needs Xcode 26 or later, and automatic signing
+# about 25, --hitches about 30. Needs Xcode 26 or later, and automatic signing
 # (the project's team is CX4XTQ23ND; DEVELOPMENT_TEAM=... to use yours).
 
 set -euo pipefail
@@ -49,7 +52,7 @@ while [[ $# -gt 0 ]]; do
         --hitches) RUN_HITCHES=1; shift ;;
         --all) RUN_APP=1; RUN_UI=1; RUN_HITCHES=1; shift ;;
         --) shift; APP_ARGS=("$@"); break ;;
-        -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (app arguments go after --)" >&2; exit 2 ;;
     esac
 done
@@ -91,8 +94,7 @@ rm -f "$LIST"
 echo "Device: $DEVICE ($DEVICE_TYPE)"
 
 # The bench's commit, recorded in the report.
-COMMIT="$(git -C "$IOS_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-if [[ -n "$(git -C "$IOS_DIR" status --porcelain -- . ../Shared 2>/dev/null)" ]]; then COMMIT="$COMMIT-modified"; fi
+COMMIT="$("$IOS_DIR/../Scripts/bench-commit.sh")"
 SETTINGS=(BENCH_COMMIT="$COMMIT")
 [[ -n "${DEVELOPMENT_TEAM:-}" ]] && SETTINGS+=(DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM")
 
@@ -151,9 +153,15 @@ if [[ $RUN_HITCHES -eq 1 ]]; then
     ENGINES=(gingham tableView tableViewTuned collectionView collectionViewTuned swiftUIList)
     # SwiftUI Table shows one column on iPhone: only on iPad.
     [[ "$DEVICE_TYPE" == "iPad" ]] && ENGINES+=(swiftUITable)
-    for engine in "${ENGINES[@]}"; do
-        trace="$RESULTS/ios-hitches-$engine-$STAMP.trace"
-        echo "Animation Hitches: $engine…"
+    HITCH_RUNS="${GINGHAM_BENCH_HITCH_RUNS:-3}"
+    SUMMARIES=()
+    # Rounds: every engine once a round, the order turned by one each round (no engine always
+    # first, or always after the same one), so a warming device spreads over all of them.
+    for (( round = 1; round <= HITCH_RUNS; round++ )); do
+      for (( index = 0; index < ${#ENGINES[@]}; index++ )); do
+        engine="${ENGINES[$(( (index + round - 1) % ${#ENGINES[@]} ))]}"
+        trace="$RESULTS/ios-hitches-$engine-$STAMP-r$round.trace"
+        echo "Animation Hitches, round $round of $HITCH_RUNS: $engine…"
         # Instruments leaves its raw kernel trace (instruments*.ktrace, 1–2 GB) in the temporary
         # folder: those of this recording are deleted after it.
         KTRACES_BEFORE=$(ls "${TMPDIR:-/tmp/}"instruments*.ktrace 2>/dev/null || true)
@@ -162,14 +170,20 @@ if [[ $RUN_HITCHES -eq 1 ]]; then
         xcrun xctrace record --template 'Animation Hitches' --instrument os_signpost --device "$DEVICE" \
             --time-limit 10m --no-prompt --output "$trace" \
             --launch -- "$BUNDLE_ID" -autoTest YES -exitWhenDone YES -engine "$engine" -runs 1 ${APP_ARGS[@]+"${APP_ARGS[@]}"} \
-            > "$RESULTS/ios-hitches-$engine-$STAMP.log" 2>&1 \
-            || echo "Recording $engine reported problems; see $RESULTS/ios-hitches-$engine-$STAMP.log" >&2
-        python3 -I "$IOS_DIR/Scripts/hitches-summary.py" "$trace" > "$RESULTS/ios-hitches-$engine-$STAMP.json" \
-            || echo "Couldn't summarize $trace (open it in Instruments)." >&2
+            > "$RESULTS/ios-hitches-$engine-$STAMP-r$round.log" 2>&1 \
+            || echo "Recording $engine reported problems; see $RESULTS/ios-hitches-$engine-$STAMP-r$round.log" >&2
+        summary="$RESULTS/ios-hitches-$engine-$STAMP-r$round.json"
+        python3 -I "$IOS_DIR/Scripts/hitches-summary.py" "$trace" > "$summary" \
+            && SUMMARIES+=("$summary") || echo "Couldn't summarize $trace (open it in Instruments)." >&2
         for ktrace in "${TMPDIR:-/tmp/}"instruments*.ktrace; do
             [[ -e "$ktrace" ]] || continue
             grep -qxF "$ktrace" <<< "$KTRACES_BEFORE" || rm -f "$ktrace"
         done
-        echo "→ $RESULTS/ios-hitches-$engine-$STAMP.json"
+        echo "→ $summary"
+      done
     done
+    if [[ ${#SUMMARIES[@]} -gt 0 ]]; then
+        python3 -I "$IOS_DIR/Scripts/hitches-summary.py" --combine "${SUMMARIES[@]}" > "$RESULTS/ios-hitches-$STAMP.json"
+        echo "→ $RESULTS/ios-hitches-$STAMP.json (each engine's tests over the $HITCH_RUNS recordings)"
+    fi
 fi

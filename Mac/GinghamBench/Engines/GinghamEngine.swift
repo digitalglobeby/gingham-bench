@@ -84,6 +84,15 @@ final class GinghamEngine: NSObject, Engine, GHTableViewDataSource {
     var isSorting: Bool { table.isSortingRows }
     func sourceRow(atDisplayIndex index: Int) -> Int? { table.row(atDisplayIndex: index) }
     var displayedRowCount: Int { table.numberOfDisplayedRows }
+
+    /// Where the rows started (the scroll scenario).
+    private var scrollTop: CGFloat?
+    func scroll(toY y: CGFloat) {
+        let top = scrollTop ?? table.contentOffset.y
+        scrollTop = top
+        table.scroll(to: CGPoint(x: table.contentOffset.x, y: top + y))
+    }
+    var rowPitch: CGFloat { table.rowHeight }
     /// The rows and columns Gingham shows in its bounds (its accessibility's visible rows and columns).
     var rendered: (rows: Int, columns: Int)? {
         (table.accessibilityVisibleRows()?.count ?? 0, table.accessibilityVisibleColumns()?.count ?? 0)

@@ -169,14 +169,17 @@ final class SyntheticScenario: Scenario {
     private let model: FeedModel
     private let store: FeedStore
     private let rows: Int
+    /// The trades' changes a second, when not the model's (the quiet table's 10).
+    private let changesPerSecond: Int?
     private var pump: FeedPump?
     let sort: [SortSpec]
     var source: BenchSource { store }
 
-    init(id: ScenarioID, model: FeedModel, sortByAmount: Bool, rows: Int?) {
+    init(id: ScenarioID, model: FeedModel, sortByAmount: Bool, rows: Int?, changesPerSecond: Int? = nil) {
         self.id = id
         self.model = model
         self.rows = rows ?? model.rows
+        self.changesPerSecond = changesPerSecond
         store = FeedStore(model: model)
         sort = sortByAmount ? [SortSpec(column: model == .wideTrades ? 12 : 5, ascending: false)] : []
     }
@@ -184,10 +187,11 @@ final class SyntheticScenario: Scenario {
     /// The row changes a second the model makes (a row's changes within a tick count once),
     /// measured with `--calibrate-feed`.
     var nominalChanges: Int {
+        if let changesPerSecond { return changesPerSecond }
         switch model {
-        case .trades, .wideTrades: 44_800
-        case .orders: 243_500
-        case .instruments: 300_000
+        case .trades, .wideTrades: return 44_800
+        case .orders: return 243_500
+        case .instruments: return 300_000
         }
     }
 
@@ -205,8 +209,8 @@ final class SyntheticScenario: Scenario {
     }
 
     func prepare() async throws {
-        let model = model, rows = rows
-        let generator = await Task.detached(priority: .userInitiated) { FeedGenerator(model: model, rows: rows) }.value
+        let model = model, rows = rows, changes = changesPerSecond.map(Double.init)
+        let generator = await Task.detached(priority: .userInitiated) { FeedGenerator(model: model, rows: rows, changesPerSecond: changes) }.value
         store.load(cells: generator.cells, count: generator.count)
         pump = FeedPump(generator: generator, changesPerSecond: nominalChanges)
     }

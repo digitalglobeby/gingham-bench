@@ -53,8 +53,12 @@ targets:
         NSPrincipalClass: NSApplication
         NSSupportsAutomaticTermination: false
         NSSupportsSuddenTermination: false
+        # The bench repository's commit, set by the scripts that build it (empty from Xcode):
+        # recorded in every result line.
+        GinghamBenchCommit: $(BENCH_COMMIT)
     settings:
       base:
+        BENCH_COMMIT: ""
         PRODUCT_NAME: Gingham Bench
         PRODUCT_BUNDLE_IDENTIFIER: by.digitalglobe.gingham-bench
         INFOPLIST_FILE: GinghamBench/Info.plist

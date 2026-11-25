@@ -2,12 +2,15 @@
 # Builds the Mac app (Release) and runs every scenario with every engine, each run in a process
 # of its own, writing results/<date>.jsonl (a JSON line per run) and results/<date>.md (the table).
 #
-#   Scripts/run-all.sh                          everything: 8 scenarios × 7 engines × 3 runs of 10 s, then a
-#                                               round of all with the screen meter (about 90 minutes: runs
+#   Scripts/run-all.sh                          everything: 11 scenarios × 8 engines × 3 runs of 10 s, then a
+#                                               round of all with the screen meter (about 2½ hours: runs
 #                                               wait for Binance's request limit, SwiftUI's Table runs out its
 #                                               timeouts, and sorts on the main thread take a while)
 #   Scripts/run-all.sh --scenario live-trades   any of the app's arguments (see Mac/GinghamBench/App/Options.swift)
 #   Scripts/run-all.sh --runs 5 --seconds 20
+#   Scripts/run-all.sh --scenario live --update-rate 30
+#                                               changes applied 30 times a second for every engine (an app that
+#                                               coalesces), instead of at every display-link callback
 #   Scripts/run-all.sh --trace-pass             also one Instruments-traced run of each engine on live-trades and
 #                                               order-book: the system's count of the window's frames (~8 minutes more)
 #
@@ -29,11 +32,13 @@ if [[ "$(pmset -g batt | head -1)" == *"Battery Power"* ]]; then
   echo "⚠︎ On battery: plug in for steady numbers."
 fi
 
+# The bench's commit goes into the app (and so into every result line).
+COMMIT=$(Scripts/bench-commit.sh)
 build() {
   xcodebuild -project Mac/GinghamBench.xcodeproj -scheme GinghamBench -configuration Release \
-    -derivedDataPath "$DERIVED" -destination 'platform=macOS' "$@" build >> "$LOG" 2>&1
+    -derivedDataPath "$DERIVED" -destination 'platform=macOS' BENCH_COMMIT="$COMMIT" "$@" build >> "$LOG" 2>&1
 }
-echo "▸ building Release (log: $LOG)"
+echo "▸ building Release of $COMMIT (log: $LOG)"
 # Signed with the project's team if this Mac has its certificate; otherwise signed to run locally.
 if ! build; then
   echo "  (no signing certificate of the project's team: building signed to run locally)"

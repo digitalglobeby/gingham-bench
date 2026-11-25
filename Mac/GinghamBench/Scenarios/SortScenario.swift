@@ -2,18 +2,19 @@
 //  SortScenario.swift
 //  Gingham Bench
 //
-//  A static table of 1,000,000 trades, sorted by a text column as a click on its header would
-//  sort it: by "Pair" (`sort-text`: about 500 distinct pairs, the busiest far more frequent, as
-//  in real trades; the earlier measurement sorted 1,000,000 Binance trades by pair) or by
-//  "Account" (`sort-text-account`: nearly every row a different name with a number, so the
-//  numeric-aware Finder order matters). Generated from a fixed seed.
+//  A static table of 1,000,000 trades, sorted by a column as a click on its header would sort it:
+//  by "Pair" (`sort-text`: about 500 distinct pairs, the busiest far more frequent, as in real
+//  trades; the earlier measurement sorted 1,000,000 Binance trades by pair), by "Account"
+//  (`sort-text-account`: nearly every row a different name with a number, so the numeric-aware
+//  Finder order matters) or by "Amount" (`sort-number`: a number, the commonest sort of a business
+//  table). Generated from a fixed seed.
 //
 //  Measured by the runner: three sorts, each from the unsorted order: the column (the first sort
-//  in the process, cold), the other text column (account or pair), the column again (a repeated
+//  in the process, cold), the other column (account or pair; for amount, price), the column again (a repeated
 //  sort: what a table or app kept from the first may make it faster). For each, the time from the
 //  request to the first screen frame with the new order, the frames that came meanwhile and the
-//  longest gap between them; at the end, whether the order shown is Finder's
-//  (`localizedStandardCompare`) all the way down.
+//  longest gap between them; at the end, whether the order shown is the column's all the way down
+//  (text in Finder's order, `localizedStandardCompare`; numbers by value).
 //
 
 import AppKit
@@ -89,7 +90,7 @@ final class SortScenario: Scenario {
     let id: ScenarioID
     private let store = SortStore()
     private let rows: Int
-    /// The column sorted by (1: pair, 7: account).
+    /// The column sorted by (1: pair, 7: account, 5: amount).
     let sortColumn: Int
     var source: BenchSource { store }
     var sort: [SortSpec] { [] }
@@ -97,19 +98,21 @@ final class SortScenario: Scenario {
     init(id: ScenarioID, rows: Int, column: String) {
         self.id = id
         self.rows = rows
-        sortColumn = column == "account" ? 7 : 1
+        sortColumn = column == "account" ? 7 : column == "amount" ? 5 : 1
     }
+
+    var isNumeric: Bool { store.columns[sortColumn].kind != .text }
 
     var sortSpec: SortSpec { SortSpec(column: sortColumn, ascending: true) }
 
-    /// The sorts of a run: the column (cold), the other text column, the column again.
+    /// The sorts of a run: the column (cold), the other column of its kind, the column again.
     var sequence: [(step: String, spec: SortSpec)] {
-        let other = SortSpec(column: sortColumn == 7 ? 1 : 7, ascending: true)
+        let other = SortSpec(column: sortColumn == 7 ? 1 : sortColumn == 5 ? 3 : 7, ascending: true)
         return [("first", sortSpec), ("other", other), ("again", sortSpec)]
     }
 
     var subtitle: String {
-        "\(rows.formatted()) trades · sorted by \(sortColumn == 7 ? "account (nearly all distinct)" : "pair (about 500 distinct)") on request"
+        "\(rows.formatted()) trades · sorted by \(sortColumn == 7 ? "account (nearly all distinct)" : sortColumn == 5 ? "amount (a number)" : "pair (about 500 distinct)") on request"
     }
 
     func prepare() async throws {

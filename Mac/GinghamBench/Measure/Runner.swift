@@ -139,12 +139,15 @@ final class ChildRun {
     private var lastLockCheck: CFTimeInterval = 0
     private var lagFrames = 0, checkedFrames = 0, differingPlaces = 0
     private var observers: [NSObjectProtocol] = []
+    /// `--update-rate`: when the changes are applied.
+    private var pacer: UpdatePacer?
 
     init(options: Options, ui: BenchWindow) {
         self.options = options
         scenarioID = options.scenarios[0]
         kind = options.engines[0]
         self.ui = ui
+        pacer = options.updateRate.map { UpdatePacer(rate: $0) }
     }
 
     func start() {
@@ -188,6 +191,7 @@ final class ChildRun {
         result.windowPixels = "\(Int(options.windowSize.width * scale))x\(Int(options.windowSize.height * scale))"
         result.after = options.afterEngine
         result.settleSeconds = options.settleSeconds
+        result.updateRate = options.updateRate
         return result
     }
 
@@ -266,7 +270,8 @@ final class ChildRun {
             lastBarUpdate = now
             let second = meter.data.lastSecond(now: now)
             ui.bar.update(updates: second.updates, busy: second.busy, callbacks: second.callbacks, age: second.age,
-                          screen: screenMeter?.state == "running" ? second.screen : nil, refreshRate: meter.refreshRate)
+                          screen: screenMeter?.state == "running" ? second.screen : nil,
+                          refreshRate: pacer.map { min(Int($0.rate), meter.refreshRate) } ?? meter.refreshRate)
         }
         checkVisible(now)
         guard !scenarioID.isSort else { return }
@@ -298,8 +303,11 @@ final class ChildRun {
             differingPlaces += differing
             checkedFrames += 1
         }
-        // Everything that came since the last callback, applied at once.
-        meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
+        // Everything that came since the last update, applied at once: at every callback, or
+        // with `--update-rate` at that rate (the scroll scenario's steps aren't paced).
+        if scenarioID.isScroll || pacer?.isDue(now, refreshRate: meter.refreshRate) ?? true {
+            meter.data.applied(scenario.applyPending(to: engine, at: now), at: now)
+        }
         if let window, now >= window.end, !verifying { finishMeasured(window) }
     }
 
@@ -484,7 +492,7 @@ final class ChildRun {
         result.screenMeter = screenMeter?.state ?? "off (--no-screen-meter)"
         result.loadSeconds = loadedAt.map { $0 - loadStart }
         result.sorts = sorts
-        result.orderCheck = isInFinderOrder(engine, scenario: scenario) ? "ok" : "not in Finder's order"
+        result.orderCheck = isInOrder(engine, scenario: scenario) ? "ok" : scenario.isNumeric ? "not in order" : "not in Finder's order"
         let interruptions = meter.data.interruptions(in: (loadedAt ?? 0)...CACurrentMediaTime())
         if let first = interruptions.first {
             result.status = "invalid"
@@ -493,9 +501,20 @@ final class ChildRun {
         write(result)
     }
 
-    /// Every row shown, in Finder's order of the sorted column (ties in any order).
-    private func isInFinderOrder(_ engine: Engine, scenario: SortScenario) -> Bool {
+    /// Every row shown, in the sorted column's order (ties in any order): text in Finder's order,
+    /// numbers by value.
+    private func isInOrder(_ engine: Engine, scenario: SortScenario) -> Bool {
         let source = scenario.source
+        if scenario.isNumeric {
+            var previous = -Double.infinity
+            for index in 0..<source.rowCount {
+                guard let row = engine.sourceRow(atDisplayIndex: index), row < source.rowCount else { return false }
+                let value = source.number(row, scenario.sortColumn)
+                if value < previous { return false }
+                previous = value
+            }
+            return true
+        }
         var previous: String?
         for index in 0..<source.rowCount {
             guard let row = engine.sourceRow(atDisplayIndex: index), row < source.rowCount else { return false }
@@ -754,6 +773,12 @@ enum Orchestrator {
                     }
                     if process.terminationStatus != 0 { failures += 1 }
                     }
+        }
+        if let recording = options.powerFile {
+            // The Mac's power in each run's window, from the owner's powermetrics recording (its
+            // last samples a moment to reach the file).
+            Thread.sleep(forTimeInterval: 3)
+            print(PowerMetrics.attach(recording: recording, to: output))
         }
         let markdownPath = (output as NSString).deletingPathExtension + ".md"
         let markdown = Report.markdown(Report.read(output))

@@ -12,9 +12,11 @@ to Gingham's lead.
   existing engine, or add one next to it (a case in `EngineKind`) if it's a different approach
   that stands on its own.
 - Keep the rules every engine follows: the same store, columns, widths and text for each value
-  (`--check-formats`), everything the feed sends applied at every display-link callback, the
-  order check after the run passing, no work hidden from the measurement (a background thread is
-  fine: process CPU and GPU are reported too).
+  (`--check-formats`), one update rate for all engines in a table (by default everything the feed
+  sends is applied at every display-link callback; `--update-rate 30` applies it 30 times a second
+  for every engine, as an app that coalesces its updates does: coalescing belongs in that option,
+  not in one engine), the order check after the run passing, no work hidden from the measurement (a
+  background thread is fine: process CPU, GPU and the Mac's power are reported too).
 - Hot closures and loops go into `nonisolated` helpers (see the comment in `Data/AppSort.swift`);
   `Scripts/check-isolation.sh` fails otherwise.
 - Explain each choice in a comment, as the existing engines do, and update the engine's section
