@@ -19,8 +19,8 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.3"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "1.3.1"
+    CURRENT_PROJECT_VERSION: "5"
     DEVELOPMENT_TEAM: CX4XTQ23ND
     CODE_SIGN_STYLE: Automatic
     CODE_SIGN_IDENTITY: Apple Development
@@ -40,6 +40,8 @@ targets:
       path: GinghamBench/Info.plist
       properties:
         CFBundleDisplayName: Gingham Bench
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         UILaunchScreen: {}
         UIApplicationSceneManifest:
@@ -63,12 +65,16 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
         # The bench repository's commit, set by Scripts/run-device.sh (empty from Xcode).
         GinghamBenchCommit: $(BENCH_COMMIT)
+        # No encryption beyond the system's (no network at all): TestFlight asks no questions.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: by.digitalglobe.gingham-bench
         PRODUCT_NAME: GinghamBench
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
+        # Gingham's mark (Assets.xcassets), for TestFlight.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Gingham's binary is for Apple silicon only (its simulator slice too).
         "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
         ENABLE_USER_SCRIPT_SANDBOXING: YES

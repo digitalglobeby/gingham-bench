@@ -1379,6 +1379,14 @@ commit, Xcode and SDK versions, Gingham's version), the date and every test
 - On iPad, the app full screen (not in a smaller window beside others).
 - Don't touch the screen while the tests run.
 
+## Privacy
+
+The bench collects nothing: no analytics, no accounts, no data sent anywhere. Its results stay on
+your device (the Mac app writes the files you name; the iPhone and iPad app writes its reports to
+its Documents folder, which the Files app shows). The only network access is the Mac app's Binance
+scenarios, which read Binance's public market data when you run them; the iPhone and iPad app
+doesn't use the network.
+
 ## Contributing
 
 Pull requests that make any engine faster are welcome, the competitors above all; see
