@@ -34,6 +34,12 @@ measured.
 from [Releases](../../releases), unzip it, open **Gingham Bench**. It needs macOS 14 or later on
 Apple silicon (the SwiftUI Table engine needs macOS 14.4).
 
+**iPhone and iPad**: install the app from TestFlight,
+[testflight.apple.com/join/QVfmXevP](https://testflight.apple.com/join/QVfmXevP) (iOS 17 or later),
+and tap **Test** or **Run All**; see [iPhone and iPad](#iphone-and-ipad). The TestFlight build is the
+one measured here, with every row: built from the source with your own team, it needs a bundle id
+of your own, and the bench's license key is for its bundle id only.
+
 **Window mode** (open the app): pick a scenario and an engine and watch the updates a second,
 the data's age and the main thread's load, live. This is for looking, screenshots and video; for numbers to compare
 use the command line, which runs each engine in a fresh process with a warm-up and several runs. When the main
@@ -1384,7 +1390,11 @@ with `devicectl` and launches it with launch arguments that run the tests by
 themselves; it copies everything into `iOS/results/`: the app's JSON reports
 and logs, the UI tests' `.xcresult` and its metrics
 (`xcresulttool get test-results metrics`) as JSON, and the `.trace` files with
-their summaries. To sign with your own team, set `DEVELOPMENT_TEAM=<team id>`.
+their summaries. To sign with your own team, set `DEVELOPMENT_TEAM=<team id>` and
+`PRODUCT_BUNDLE_IDENTIFIER=<a bundle id of yours>`: Apple gives a bundle id to one team only. The bench's
+license key unlocks every row only for its own bundle id, so with yours the tables show up to
+10,000 rows; to measure the big cases on your device, use the
+[TestFlight build](https://testflight.apple.com/join/QVfmXevP).
 
 From Xcode: open `iOS/GinghamBench.xcodeproj`, run the "Gingham Bench" scheme
 (Release, without the debugger), and tap **Test** (the engine shown) or
