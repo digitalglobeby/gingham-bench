@@ -1,0 +1,458 @@
+{
+  "recordings": [
+    "ios-hitches-gingham-2026-11-26-113905-r1.json",
+    "ios-hitches-tableView-2026-11-26-113905-r1.json",
+    "ios-hitches-tableViewTuned-2026-11-26-113905-r1.json",
+    "ios-hitches-collectionView-2026-11-26-113905-r1.json",
+    "ios-hitches-collectionViewTuned-2026-11-26-113905-r1.json",
+    "ios-hitches-swiftUIList-2026-11-26-113905-r1.json",
+    "ios-hitches-tableView-2026-11-26-113905-r2.json",
+    "ios-hitches-collectionView-2026-11-26-113905-r2.json",
+    "ios-hitches-collectionViewTuned-2026-11-26-113905-r2.json",
+    "ios-hitches-swiftUIList-2026-11-26-113905-r2.json",
+    "ios-hitches-gingham-2026-11-26-113905-r2.json",
+    "ios-hitches-tableViewTuned-2026-11-26-113905-r3.json",
+    "ios-hitches-collectionView-2026-11-26-113905-r3.json",
+    "ios-hitches-collectionViewTuned-2026-11-26-113905-r3.json",
+    "ios-hitches-swiftUIList-2026-11-26-113905-r3.json",
+    "ios-hitches-gingham-2026-11-26-113905-r3.json",
+    "ios-hitches-tableView-2026-11-26-113905-r3.json"
+  ],
+  "tests": [
+    {
+      "engine": "Gingham",
+      "test": "steady",
+      "recordings": [
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r1.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r2.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r3.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 0.0,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 0.0
+    },
+    {
+      "engine": "Gingham",
+      "test": "fast",
+      "recordings": [
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r1.trace",
+          "hitches": 7,
+          "hitchTimeMsPerSecond": 12.5
+        },
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r2.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r3.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.6
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 1.6,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 12.5
+    },
+    {
+      "engine": "Gingham",
+      "test": "flicks",
+      "recordings": [
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r1.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.6
+        },
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r2.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-gingham-2026-11-26-113905-r3.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 0.0,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 1.6
+    },
+    {
+      "engine": "UITableView (typical)",
+      "test": "steady",
+      "recordings": [
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r1.trace",
+          "hitches": 478,
+          "hitchTimeMsPerSecond": 503.9
+        },
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r2.trace",
+          "hitches": 478,
+          "hitchTimeMsPerSecond": 504.4
+        },
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r3.trace",
+          "hitches": 479,
+          "hitchTimeMsPerSecond": 504.3
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 504.3,
+      "lowestHitchTimeMsPerSecond": 503.9,
+      "highestHitchTimeMsPerSecond": 504.4
+    },
+    {
+      "engine": "UITableView (typical)",
+      "test": "fast",
+      "recordings": [
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r1.trace",
+          "hitches": 481,
+          "hitchTimeMsPerSecond": 505.9
+        },
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r2.trace",
+          "hitches": 481,
+          "hitchTimeMsPerSecond": 503.5
+        },
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r3.trace",
+          "hitches": 481,
+          "hitchTimeMsPerSecond": 503.8
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 503.8,
+      "lowestHitchTimeMsPerSecond": 503.5,
+      "highestHitchTimeMsPerSecond": 505.9
+    },
+    {
+      "engine": "UITableView (typical)",
+      "test": "flicks",
+      "recordings": [
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r1.trace",
+          "hitches": 479,
+          "hitchTimeMsPerSecond": 503.1
+        },
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r2.trace",
+          "hitches": 480,
+          "hitchTimeMsPerSecond": 503.3
+        },
+        {
+          "trace": "ios-hitches-tableView-2026-11-26-113905-r3.trace",
+          "hitches": 479,
+          "hitchTimeMsPerSecond": 503.1
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 503.1,
+      "lowestHitchTimeMsPerSecond": 503.1,
+      "highestHitchTimeMsPerSecond": 503.3
+    },
+    {
+      "engine": "UITableView (tuned)",
+      "test": "steady",
+      "recordings": [
+        {
+          "trace": "ios-hitches-tableViewTuned-2026-11-26-113905-r1.trace",
+          "hitches": 2,
+          "hitchTimeMsPerSecond": 2.6
+        },
+        {
+          "trace": "ios-hitches-tableViewTuned-2026-11-26-113905-r3.trace",
+          "hitches": 5,
+          "hitchTimeMsPerSecond": 6.2
+        }
+      ],
+      "count": 2,
+      "medianHitchTimeMsPerSecond": 4.4,
+      "lowestHitchTimeMsPerSecond": 2.6,
+      "highestHitchTimeMsPerSecond": 6.2
+    },
+    {
+      "engine": "UITableView (tuned)",
+      "test": "fast",
+      "recordings": [
+        {
+          "trace": "ios-hitches-tableViewTuned-2026-11-26-113905-r1.trace",
+          "hitches": 3,
+          "hitchTimeMsPerSecond": 3.6
+        },
+        {
+          "trace": "ios-hitches-tableViewTuned-2026-11-26-113905-r3.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.0
+        }
+      ],
+      "count": 2,
+      "medianHitchTimeMsPerSecond": 2.3,
+      "lowestHitchTimeMsPerSecond": 1.0,
+      "highestHitchTimeMsPerSecond": 3.6
+    },
+    {
+      "engine": "UITableView (tuned)",
+      "test": "flicks",
+      "recordings": [
+        {
+          "trace": "ios-hitches-tableViewTuned-2026-11-26-113905-r1.trace",
+          "hitches": 4,
+          "hitchTimeMsPerSecond": 4.2
+        },
+        {
+          "trace": "ios-hitches-tableViewTuned-2026-11-26-113905-r3.trace",
+          "hitches": 7,
+          "hitchTimeMsPerSecond": 7.3
+        }
+      ],
+      "count": 2,
+      "medianHitchTimeMsPerSecond": 5.8,
+      "lowestHitchTimeMsPerSecond": 4.2,
+      "highestHitchTimeMsPerSecond": 7.3
+    },
+    {
+      "engine": "UICollectionView (typical)",
+      "test": "steady",
+      "recordings": [
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r1.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.6
+        },
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r2.trace",
+          "hitches": 2,
+          "hitchTimeMsPerSecond": 3.1
+        },
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r3.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 1.6,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 3.1
+    },
+    {
+      "engine": "UICollectionView (typical)",
+      "test": "fast",
+      "recordings": [
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r1.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.6
+        },
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r2.trace",
+          "hitches": 2,
+          "hitchTimeMsPerSecond": 2.1
+        },
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r3.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 1.6,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 2.1
+    },
+    {
+      "engine": "UICollectionView (typical)",
+      "test": "flicks",
+      "recordings": [
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r1.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r2.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.6
+        },
+        {
+          "trace": "ios-hitches-collectionView-2026-11-26-113905-r3.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 0.0,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 1.6
+    },
+    {
+      "engine": "UICollectionView (tuned)",
+      "test": "steady",
+      "recordings": [
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r1.trace",
+          "hitches": 5,
+          "hitchTimeMsPerSecond": 5.7
+        },
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r2.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.0
+        },
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r3.trace",
+          "hitches": 6,
+          "hitchTimeMsPerSecond": 6.8
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 5.7,
+      "lowestHitchTimeMsPerSecond": 1.0,
+      "highestHitchTimeMsPerSecond": 6.8
+    },
+    {
+      "engine": "UICollectionView (tuned)",
+      "test": "fast",
+      "recordings": [
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r1.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r2.trace",
+          "hitches": 0,
+          "hitchTimeMsPerSecond": 0.0
+        },
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r3.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.0
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 0.0,
+      "lowestHitchTimeMsPerSecond": 0.0,
+      "highestHitchTimeMsPerSecond": 1.0
+    },
+    {
+      "engine": "UICollectionView (tuned)",
+      "test": "flicks",
+      "recordings": [
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r1.trace",
+          "hitches": 3,
+          "hitchTimeMsPerSecond": 3.1
+        },
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r2.trace",
+          "hitches": 6,
+          "hitchTimeMsPerSecond": 6.2
+        },
+        {
+          "trace": "ios-hitches-collectionViewTuned-2026-11-26-113905-r3.trace",
+          "hitches": 5,
+          "hitchTimeMsPerSecond": 5.2
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 5.2,
+      "lowestHitchTimeMsPerSecond": 3.1,
+      "highestHitchTimeMsPerSecond": 6.2
+    },
+    {
+      "engine": "SwiftUI List",
+      "test": "steady",
+      "recordings": [
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r1.trace",
+          "hitches": 1,
+          "hitchTimeMsPerSecond": 1.0
+        },
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r2.trace",
+          "hitches": 2,
+          "hitchTimeMsPerSecond": 2.6
+        },
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r3.trace",
+          "hitches": 2,
+          "hitchTimeMsPerSecond": 2.6
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 2.6,
+      "lowestHitchTimeMsPerSecond": 1.0,
+      "highestHitchTimeMsPerSecond": 2.6
+    },
+    {
+      "engine": "SwiftUI List",
+      "test": "fast",
+      "recordings": [
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r1.trace",
+          "hitches": 3,
+          "hitchTimeMsPerSecond": 5.7
+        },
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r2.trace",
+          "hitches": 3,
+          "hitchTimeMsPerSecond": 4.2
+        },
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r3.trace",
+          "hitches": 3,
+          "hitchTimeMsPerSecond": 3.1
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 4.2,
+      "lowestHitchTimeMsPerSecond": 3.1,
+      "highestHitchTimeMsPerSecond": 5.7
+    },
+    {
+      "engine": "SwiftUI List",
+      "test": "flicks",
+      "recordings": [
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r1.trace",
+          "hitches": 5,
+          "hitchTimeMsPerSecond": 5.7
+        },
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r2.trace",
+          "hitches": 7,
+          "hitchTimeMsPerSecond": 7.3
+        },
+        {
+          "trace": "ios-hitches-swiftUIList-2026-11-26-113905-r3.trace",
+          "hitches": 3,
+          "hitchTimeMsPerSecond": 3.1
+        }
+      ],
+      "count": 3,
+      "medianHitchTimeMsPerSecond": 5.7,
+      "lowestHitchTimeMsPerSecond": 3.1,
+      "highestHitchTimeMsPerSecond": 7.3
+    }
+  ]
+}

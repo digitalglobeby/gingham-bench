@@ -400,7 +400,7 @@ TABLES = {
                                       ("3840 × 2160, Gingham's earlier sets", MACBOOK_4K_HISTORY[:-1]),
                                       ("4K display, filled", DISPLAY_4K_FILL),
                                       ("4K display, 3840 × 2160", DISPLAY_4K + DISPLAY_4K_CELLS_LIVE)]),
-    "ios-hitches": lambda: ios_hitches_table("2026-11-24-185915"),
+    "ios-hitches": lambda: ios_hitches_table("2026-11-26-113905"),
     "ios-meter": lambda: ios_meter_table([("100,000 rows, 1,000 changes/s", "ios-100k-2026-11-26-111104.json"),
                                           ("1,000,000 rows, 10,000 changes/s", "ios-1m-2026-11-26-111104.json")]),
 }

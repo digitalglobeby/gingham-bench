@@ -1057,24 +1057,25 @@ the least (0.12 W against 0.19–0.31 W) ([the full table](results/2026-11-26-00
 
 iPhone 15 Pro Max (iPhone16,2), iOS 27.2.1, 120 Hz, Release build; the JSON summaries are in
 [`results/ios`](results/ios). The app's own meter: Gingham 1.2.0, 2026-11-26, the bench's commit
-9ec96fe (`*-2026-11-26-111104.json`); Animation Hitches: Gingham 1.1.3, 2026-11-24, commit bb25bad
-(`*-2026-11-24-185915.json`).
+9ec96fe (`*-2026-11-26-111104.json`); Animation Hitches: Gingham 1.2.0, 2026-11-26, commit d7cfbe0
+(`ios-hitches-2026-11-26-113905.json` and each recording's `-r1`…`-r3`).
 
 Instruments' Animation Hitches on the device (the primary render-side figure: everything that made
-a frame late, wherever the work happened; one recording per engine while the app runs its tests at
-100,000 rows and 1,000 changes a second, three per engine from the next run on): hitch time, ms a
-second, in the steady · fast · flick scrolling tests. With one recording each, differences of a few
-ms a second mean little.
+a frame late, wherever the work happened; three recordings per engine, the engines in another
+order each round, while the app runs its tests at 100,000 rows and 1,000 changes a second; two for
+the tuned UITableView, whose second recording xctrace didn't finish): hitch time, ms a second, the
+median of the recordings, in the steady · fast · flick scrolling tests. Differences of a few ms a
+second are within the recordings' spread.
 
 <!-- table: ios-hitches -->
 | Engine | Steady | Fast | Flicks |
 | --- | --- | --- | --- |
-| Gingham | 0 | 3.6 | 6.2 |
-| UITableView (typical) | 501.3 | 506.4 | 501.2 |
-| UITableView (tuned) | 2.1 | 1 | 6.2 |
-| UICollectionView (typical) | 2.1 | 1 | 0 |
-| UICollectionView (tuned) | 2.1 | 2.1 | 2.1 |
-| SwiftUI List | 1.6 | 3.1 | 4.2 |
+| Gingham | 0 | 1.6 | 0 |
+| UITableView (typical) | 504.3 | 503.8 | 503.1 |
+| UITableView (tuned) | 4.4 | 2.3 | 5.8 |
+| UICollectionView (typical) | 1.6 | 1.6 | 0 |
+| UICollectionView (tuned) | 5.7 | 0 | 5.2 |
+| SwiftUI List | 2.6 | 4.2 | 5.7 |
 <!-- /table -->
 
 Under 5 ms a second is good, over 10 bad (Apple's guidance). The app's own meter (secondary: the
