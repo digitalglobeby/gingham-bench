@@ -29,6 +29,8 @@ final class InteractiveController: NSObject {
     private var lastBarUpdate: CFTimeInterval = 0
     /// `--update-rate`: when the changes are applied.
     private var pacer: UpdatePacer?
+    /// Keeps App Nap from slowing the main thread's timers (the stall watcher would see a stall).
+    private var activity: NSObjectProtocol?
 
     init(options: Options) {
         self.options = options
@@ -58,6 +60,8 @@ final class InteractiveController: NSObject {
         fflush(stdout)
         meter.onFrame = { [weak self] now in self?.frame(now) }
         meter.start(on: ui.container)
+        activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated], reason: "Showing live tables")
+        StallWatcher.start(badge: ui.bar.stall)
         if options.screenMeter {
             // What the eye sees: the big number is the table's frames with new data when it can be measured.
             let screenMeter = ScreenMeter(data: meter.data)
@@ -176,5 +180,47 @@ final class InteractiveController: NSObject {
                               refreshRate: pacer.map { min(Int($0.rate), meter.refreshRate) } ?? meter.refreshRate)
             }
         }
+    }
+}
+
+/// Window mode: shows the bar's stall badge when the main thread hasn't come back for over a
+/// second (a timer of the main thread's notes when it last did), and for 3 seconds after it comes
+/// back, while the last second's numbers are the burst it catches up on.
+nonisolated enum StallWatcher {
+    /// Main thread.
+    @MainActor static func start(badge: StallBadge) {
+        let lock = NSLock()
+        nonisolated(unsafe) var lastBeat = CACurrentMediaTime()
+        let timer = Timer(timeInterval: 0.05, repeats: true) { _ in
+            let now = CACurrentMediaTime()
+            lock.withLock { lastBeat = now }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        let thread = Thread {
+            var stall: (start: CFTimeInterval, end: CFTimeInterval)?
+            var showing = false
+            while true {
+                Thread.sleep(forTimeInterval: 0.1)
+                let now = CACurrentMediaTime()
+                let last = lock.withLock { lastBeat }
+                var lines: (title: String, note: String)?
+                if now - last > 1 {
+                    stall = (last, now)
+                    lines = ("main thread stuck for \(String(format: "%.1f", now - last)) s",
+                             "nothing in the window can change until it comes back")
+                } else if let stall, now - stall.end < 3 {
+                    lines = ("main thread was stuck for \(String(format: "%.1f", stall.end - stall.start)) s",
+                             "the numbers come back 3 s after it does")
+                }
+                // Every tick while shown (the seconds change, and the layout follows the bar's).
+                if lines != nil || showing {
+                    showing = lines != nil
+                    badge.show(lines)
+                }
+            }
+        }
+        thread.name = "Stall watcher"
+        thread.qualityOfService = .userInteractive
+        thread.start()
     }
 }

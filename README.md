@@ -36,7 +36,10 @@ Apple silicon (the SwiftUI Table engine needs macOS 14.4).
 
 **Window mode** (open the app): pick a scenario and an engine and watch the updates a second,
 the data's age and the main thread's load, live. This is for looking, screenshots and video; for numbers to compare
-use the command line, which runs each engine in a fresh process with a warm-up and several runs.
+use the command line, which runs each engine in a fresh process with a warm-up and several runs. When the main
+thread doesn't come back for over a second (SwiftUI's Table on the order book), the numbers can't change, so
+"main thread stuck for N s" covers them, and stays for 3 seconds after it comes back, while the last second's
+numbers are the burst it catches up on.
 
 **Command line**: the app measures and quits when started with `--scenario`:
 

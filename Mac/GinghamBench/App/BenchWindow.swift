@@ -18,6 +18,9 @@ final class Bar: NSView {
     /// Data age and callbacks a second.
     let small = NSTextField(labelWithString: "")
     let controls = NSStackView()
+    /// Over the numbers while the main thread is stuck (window mode).
+    let stall = StallBadge()
+    private let stallHost = NSView()
 
     init(interactive: Bool) {
         super.init(frame: .zero)
@@ -60,9 +63,25 @@ final class Bar: NSView {
             right.centerYAnchor.constraint(equalTo: centerYAnchor),
             right.leadingAnchor.constraint(greaterThanOrEqualTo: left.trailingAnchor, constant: 20),
         ])
+        // A layer-hosting view: its layers are the badge's, changed from the badge's thread.
+        stallHost.layer = stall.layer
+        stallHost.wantsLayer = true
+        stallHost.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stallHost)
+        NSLayoutConstraint.activate([
+            stallHost.leadingAnchor.constraint(equalTo: right.leadingAnchor),
+            stallHost.trailingAnchor.constraint(equalTo: busy.trailingAnchor),
+            stallHost.topAnchor.constraint(equalTo: numbers.topAnchor),
+            stallHost.bottomAnchor.constraint(equalTo: small.bottomAnchor),
+        ])
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        stall.setScale(window?.backingScaleFactor ?? 2)
+    }
 
     /// `screen`: the table's frames with new data a second, the frames whose picture of the table
     /// changed (nil without the screen meter: the big number is then the updates applied).
@@ -81,6 +100,61 @@ final class Bar: NSView {
         frames.stringValue = ""
         busy.stringValue = ""
         small.stringValue = ""
+    }
+}
+
+/// "main thread stuck for 4.2 s" over the bar's numbers. The main thread draws the numbers, so
+/// while it's stuck they stay as they were (and when it comes back, the last second's are the
+/// burst of updates it catches up on): a thread of its own shows this instead, through Core
+/// Animation, which puts layers on the screen without the main thread. That thread is the only one
+/// that changes the text and `panel.isHidden`; the main thread only sets the scale.
+nonisolated final class StallBadge: @unchecked Sendable {
+    let layer = CALayer()
+    private let panel = CALayer()
+    private let title = CATextLayer()
+    private let note = CATextLayer()
+
+    init() {
+        panel.isHidden = true
+        panel.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        title.font = NSFont.monospacedDigitSystemFont(ofSize: 22, weight: .semibold)
+        title.fontSize = 22
+        title.foregroundColor = NSColor.systemRed.cgColor
+        note.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        note.fontSize = 12
+        note.foregroundColor = NSColor.secondaryLabelColor.cgColor
+        for text in [title, note] {
+            text.alignmentMode = .right
+            text.truncationMode = .end
+            panel.addSublayer(text)
+        }
+        layer.addSublayer(panel)
+    }
+
+    /// Main thread: the screen's scale for the text.
+    func setScale(_ scale: CGFloat) {
+        title.contentsScale = scale
+        note.contentsScale = scale
+    }
+
+    /// The badge's thread: shows the lines (nil: hides the badge) and puts them on the screen now,
+    /// laid out for the host layer's size as it is (AppKit sets it on the main thread).
+    func show(_ lines: (title: String, note: String)?) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if let lines {
+            // The panel reaches past the numbers (into the bar's margin at the right): while the
+            // main thread lays the bar out again, the numbers' frames and these bounds can differ.
+            let bounds = layer.bounds
+            panel.frame = CGRect(x: -8, y: 0, width: bounds.width + 28, height: bounds.height + 2)
+            title.frame = CGRect(x: 0, y: bounds.height - 28, width: bounds.width + 8, height: 28)
+            note.frame = CGRect(x: 0, y: 0, width: bounds.width + 8, height: 16)
+            title.string = lines.title
+            note.string = lines.note
+        }
+        panel.isHidden = lines == nil
+        CATransaction.commit()
+        CATransaction.flush()
     }
 }
 

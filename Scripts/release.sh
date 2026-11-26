@@ -33,11 +33,13 @@ rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$LOG"
 KEY=(-authenticationKeyPath "$AUTH_KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER")
 
-# (The commit goes into the log too: Scripts/publish.sh checks the zip is of the commit it pushes.)
+# (The commit goes into the log too: Scripts/publish.sh checks the zip is of the commit it pushes.
+# The version is project.yml's, also when the generated project wasn't made again after a raise.)
 echo "▸ archive Gingham Bench $VERSION ($BUILD) of $COMMIT with $(xcodebuild -version | head -1)" | tee -a "$LOG"
 xcodebuild clean archive -project Mac/GinghamBench.xcodeproj -scheme GinghamBench -configuration Release \
   -destination "generic/platform=macOS" -archivePath "$WORK/GinghamBench.xcarchive" -derivedDataPath "$WORK/DerivedData" \
-  -allowProvisioningUpdates "${KEY[@]}" BENCH_COMMIT="$(Scripts/bench-commit.sh)" >> "$LOG" 2>&1 \
+  -allowProvisioningUpdates "${KEY[@]}" BENCH_COMMIT="$(Scripts/bench-commit.sh)" \
+  MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" >> "$LOG" 2>&1 \
   || { echo "✗ archive failed:"; grep -E "error:" "$LOG" | head -5; exit 1 }
 
 # Signed here with the keychain's Developer ID: the app needs no provisioning profile.
