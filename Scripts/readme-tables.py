@@ -134,22 +134,36 @@ def numbers(key, scale=1):
 
 # MARK: Live tables
 
+def has_screen_pass(names):
+    """Whether the sets measured the screen (a set run with --no-screen-meter, e.g. at an equal
+    update rate, has no screen numbers: its tables leave the column out)."""
+    return any((r.get("numbers") or {}).get("screenUpdatesPerSecond") is not None for name in names for r in runs(name))
+
+
 def live_cell(names, scenario, engine, kind):
     """`screen`: frames with new data · busy · data age (the default window); `updates`: Gingham's
-    presented frames or the others' updates applied · the screen pass · busy · data age."""
+    presented frames or the others' updates applied · the screen pass · busy · data age; `rate` (an
+    equal update rate, no screen pass): updates · busy · callbacks a second (how often the main
+    thread got to the display's refresh between the updates) · data age. A scenario without data
+    age (scrolling) leaves it out."""
     status = note(names, scenario, engine)
     if status is None:
         return "—"
     busy = stat(names, scenario, engine, numbers("busyShare", 100))
     if busy is None:
         return status
-    age = show(stat(names, scenario, engine, numbers("dataAgeP50Ms")), ranges=False)
+    age_stat = stat(names, scenario, engine, numbers("dataAgeP50Ms"))
+    age = "" if age_stat is None else f" · {show(age_stat, ranges=False)} ms"
     screen = stat(names, scenario, engine, numbers("screenUpdatesPerSecond"), select=screen_runs)
     if kind == "screen":
-        return f"{show(screen, ranges=False)} · {show(busy, suffix='%')} · {age} ms{status}"
+        return f"{show(screen, ranges=False)} · {show(busy, suffix='%')}{age}{status}"
     presented = stat(names, scenario, engine, numbers("presentedPerSecond"))
     updates = presented or stat(names, scenario, engine, numbers("updatesAppliedPerSecond"))
-    return f"{show(updates)} · screen {show(screen, ranges=False)} · {show(busy, suffix='%')} · {age} ms{status}"
+    if kind == "rate":
+        callbacks = stat(names, scenario, engine, numbers("callbacksPerSecond"))
+        return f"{show(updates)} · {show(busy, suffix='%')} · callbacks {show(callbacks, ranges=False)}{age}{status}"
+    screen_text = f" · screen {show(screen, ranges=False)}" if has_screen_pass(names) else ""
+    return f"{show(updates)}{screen_text} · {show(busy, suffix='%')}{age}{status}"
 
 
 def cost_cell(names, scenario, engine):
@@ -186,6 +200,10 @@ def screen_table(names, **options):
 
 def updates_table(names, **options):
     return live_table(names, lambda n, s, e: live_cell(n, s, e, "updates"), **options)
+
+
+def rate_table(names, **options):
+    return live_table(names, lambda n, s, e: live_cell(n, s, e, "rate"), **options)
 
 
 def cost_table(names, **options):
@@ -334,15 +352,25 @@ def ios_meter_table(files, profile="flicks"):
 DEFAULT_HEADERS = ["Live trades: 20,000 rows, ~44,800 changes/s", "Wide live trades: the same, 24 columns",
                    "Order book: 200,000 rows, ~243,500 changes/s", "Trade feed: 1,000,000 rows, ~300,000 changes/s"]
 
-# The sets each table cites (several sets of one measurement are combined).
-DEFAULT = ["2026-11-24-0906.jsonl"]
-LARGE = ["2026-11-24-1037.jsonl"]
-MACBOOK_4K = ["2026-11-25-0100.jsonl"]
+# The sets each table cites (several sets of one measurement are combined). The 2026-11-26 session
+# (Scripts/next-session.sh, steps 1–6): Gingham 1.2.0, bench commit 8301478, the Mac's power recorded.
+DEFAULT = ["2026-11-26-0025.jsonl"]               # step 1: the default window, every scenario
+LARGE = ["2026-11-26-0255.jsonl"]                 # step 2: 2040 × 1080
+MACBOOK_4K = ["2026-11-26-0356.jsonl"]            # step 3: 3840 × 2160 on the built-in display
+EQUAL_RATE_30 = ["2026-11-26-0450.jsonl"]         # step 4: the default window, --update-rate 30
+EQUAL_RATE_30_LARGE = ["2026-11-26-0529.jsonl"]   # step 5: 2040 × 1080, --update-rate 30
+EQUAL_RATE_60_LARGE = ["2026-11-26-0608.jsonl"]   # step 6: 2040 × 1080, --update-rate 60
+QUIET_AND_SCROLL = DEFAULT                        # step 1's quiet-table and scroll
+# Gingham alone at 3840 × 2160 in every set measured at that size on the built-in display.
 MACBOOK_4K_HISTORY = ["2026-11-24-0229.jsonl", "2026-11-24-1124.jsonl", "2026-11-24-1215.jsonl", "2026-11-24-1456.jsonl",
-                      "2026-11-25-0100.jsonl"]
+                      "2026-11-25-0100.jsonl"] + MACBOOK_4K
+# Older: the LG UltraFine 4K at 60 Hz, Gingham 1.1.3 and the engines of 2026-11-24 (before the
+# competitors' hand-written numbers and the cell-based table's kept text; no slot-based SwiftUI Table).
 DISPLAY_4K_FILL = ["2026-11-24-1258.jsonl"]
 DISPLAY_4K = ["2026-11-24-1345.jsonl"]
 DISPLAY_4K_CELLS_LIVE = ["2026-11-24-1648.jsonl"]
+
+QUIET = [("quiet-table", "Quiet table: 5,000 rows, 10 changes/s"), ("scroll", "Scrolling 100,000 rows")]
 
 TABLES = {
     "default": lambda: screen_table(DEFAULT, headers=DEFAULT_HEADERS),
@@ -352,12 +380,24 @@ TABLES = {
     "macbook-4k": lambda: updates_table(MACBOOK_4K),
     "macbook-4k-cost": lambda: cost_table(MACBOOK_4K),
     "macbook-4k-history": lambda: history_table(MACBOOK_4K_HISTORY, "gingham"),
+    "rate30-default": lambda: rate_table(EQUAL_RATE_30),
+    "rate30-default-cost": lambda: cost_table(EQUAL_RATE_30),
+    "rate30-large": lambda: rate_table(EQUAL_RATE_30_LARGE),
+    "rate30-large-cost": lambda: cost_table(EQUAL_RATE_30_LARGE),
+    "rate60-large": lambda: rate_table(EQUAL_RATE_60_LARGE),
+    "rate60-large-cost": lambda: cost_table(EQUAL_RATE_60_LARGE),
+    "quiet-scroll": lambda: updates_table(QUIET_AND_SCROLL, scenarios=QUIET),
+    "quiet-scroll-cost": lambda: cost_table(QUIET_AND_SCROLL, scenarios=QUIET),
     "display-4k-fill": lambda: updates_table(DISPLAY_4K_FILL),
     "display-4k": lambda: updates_table(DISPLAY_4K, overrides={("nstable-cells", "live-trades"): DISPLAY_4K_CELLS_LIVE}),
     "sorts": lambda: sort_table(DEFAULT),
     "binance": lambda: binance_table(DEFAULT),
-    "sources": lambda: sources_table([("Default window, sorts, Binance", DEFAULT), ("2040 × 1080", LARGE),
-                                      ("3840 × 2160", MACBOOK_4K), ("3840 × 2160, Gingham's earlier sets", MACBOOK_4K_HISTORY[:-1]),
+    "sources": lambda: sources_table([("Default window, quiet table, scrolling, sorts, Binance", DEFAULT),
+                                      ("2040 × 1080", LARGE), ("3840 × 2160", MACBOOK_4K),
+                                      ("30 updates a second, default window", EQUAL_RATE_30),
+                                      ("30 updates a second, 2040 × 1080", EQUAL_RATE_30_LARGE),
+                                      ("60 updates a second, 2040 × 1080", EQUAL_RATE_60_LARGE),
+                                      ("3840 × 2160, Gingham's earlier sets", MACBOOK_4K_HISTORY[:-1]),
                                       ("4K display, filled", DISPLAY_4K_FILL),
                                       ("4K display, 3840 × 2160", DISPLAY_4K + DISPLAY_4K_CELLS_LIVE)]),
     "ios-hitches": lambda: ios_hitches_table("2026-11-24-185915"),
@@ -365,23 +405,10 @@ TABLES = {
                                           ("1,000,000 rows, 10,000 changes/s", "ios-1m-2026-11-24-185915.json")]),
 }
 
-# Made only where the README has their markers: they wait for the next session's results (put the
-# set's file into the list, and the markers into the README).
-EQUAL_RATE_30 = []        # Scripts/next-session.sh step 4 (the default window, --update-rate 30)
-EQUAL_RATE_30_LARGE = []  # step 5 (2040 × 1080)
-EQUAL_RATE_60_LARGE = []  # step 6
-QUIET_AND_SCROLL = []     # step 1 (the default set): quiet-table and scroll
-QUIET = [("quiet-table", "Quiet table: 5,000 rows, 10 changes/s"), ("scroll", "Scrolling 100,000 rows")]
-PENDING = {
-    "rate30-default": lambda: updates_table(EQUAL_RATE_30),
-    "rate30-default-cost": lambda: cost_table(EQUAL_RATE_30),
-    "rate30-large": lambda: updates_table(EQUAL_RATE_30_LARGE),
-    "rate30-large-cost": lambda: cost_table(EQUAL_RATE_30_LARGE),
-    "rate60-large": lambda: updates_table(EQUAL_RATE_60_LARGE),
-    "rate60-large-cost": lambda: cost_table(EQUAL_RATE_60_LARGE),
-    "quiet-scroll": lambda: updates_table(QUIET_AND_SCROLL, scenarios=QUIET),
-    "quiet-scroll-cost": lambda: cost_table(QUIET_AND_SCROLL, scenarios=QUIET),
-}
+# Made only where the README has their markers: tables that wait for a session's results (put the
+# set's file into their list, and the markers into the README; then move them into TABLES). None
+# wait now.
+PENDING = {}
 
 
 def main():

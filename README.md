@@ -188,9 +188,9 @@ That is the saturating case: the app asks for as many updates as the screen show
 knows its table can't keep up coalesces instead, updating 30 or 60 times a second; `--update-rate 30`
 (or 60) does that for every engine alike: the changes are applied in one batch 30 times a second,
 while the display link keeps the display's rate (so the callbacks a second and the longest stall
-still show how free the main thread is). The tables below were measured at every refresh; tables at
-an equal 30 and 60 updates a second, where the engines that can hold the rate compare by what it
-costs them, come from the next session (`Scripts/next-session.sh`, steps 4–6).
+still show how free the main thread is). Most tables below were measured at every refresh; those at
+an equal 30 and 60 updates a second (Results), where the engines that can hold the rate compare by
+what it costs them, were measured with `--update-rate`.
 
 The app is in the Swift 6 language mode with main-actor default isolation. A closure made in a
 main-actor function checks that it runs on the main thread every time it's called, which made the
@@ -353,7 +353,7 @@ engines rewrite the places in view: not the same technique, which the next engin
 ### SwiftUI Table, slots
 
 The tuned AppKit engines' technique in SwiftUI (added after a review pointed out the difference;
-in the results from the next session on): rows identified by their place, not their record. The
+in the results from the 2026-11-26 session on): rows identified by their place, not their record. The
 row objects are slots like the tuned engine's (an `@Observable` object with a property per column,
 each cell reading only its own), slot n always the n-th row shown, never moved. A batch writes new
 values into the slots whose content changed: every column of a slot whose place shows another
@@ -511,8 +511,8 @@ it. Each callback applies the changes that came since the last one (above), or, 
   (that power over the updates applied a second), the GPU's clock and how much of the time it was
   active, and the **window server's CPU** from powermetrics' task list (the bench can't read it
   otherwise: another user's process). The whole Mac is measured, so a quiet Mac matters even more
-  here: anything else running is in the number. Power is in the results from the next session on
-  (`Scripts/next-session.sh`); the published sets were measured without it.
+  here: anything else running is in the number. Power is in the results from the 2026-11-26 session
+  on (`Scripts/next-session.sh`); the earlier sets were measured without it.
 - **Order check**: after each live run the feed stops, the last changes are applied, and the order
   the engine shows is checked against the store: every row once, in the scenario's order. For the
   view-based AppKit tables, whose cells can be read, the text of every cell in view is checked
@@ -559,12 +559,13 @@ from it; recorded from the sets after 2026-11-25 on, the earlier ones don't have
 - **A window larger than the screen**: `--window 3840x2160` on a MacBook (2056 × 1329 points at
   2×) is a 3840 × 2160-point table of 7680 × 4320 pixels, larger than the screen. It isn't what a
   4K display shows: a 4K display at 1× has a quarter of those pixels, and on one (the LG sets) the
-  cell-based NSTableView applied 56 updates a second on the live trades against 39 in this window.
+  cell-based NSTableView applied 56 updates a second on the live trades against 39 in this window,
+  both with the engines of 2026-11-24 and 25 (42 in this window in the 2026-11-26 set).
   The window keeps its size (AppKit would shrink it to the screen) with its top left at the
   screen's, and every engine lays out and draws all of it (107 rows by 8 columns of `live-trades`,
   SwiftUI's taller rows 89), while the window server composites the part on the screen, about a
   third. ScreenCaptureKit captures the whole window, the part off the screen too, but at this size
-  the capture costs the runs it measures (Gingham's 120 updates a second fell to 60 with it), so
+  the capture costs the runs it measures (Gingham's 120 updates a second fell to 60–71 with it), so
   its column is a floor there; the window server's GPU rate with nothing changing varies at this
   size from set to set (about 85 ms a second in one, 0–8 in another), so its GPU column isn't
   comparable either.
@@ -590,55 +591,63 @@ from it; recorded from the sets after 2026-11-25 on, the earlier ones don't have
 
 ## Results
 
-Measured on 2026-11-24 and 25 with `Scripts/run-all.sh` (3 runs of 10 s each) on a MacBook Pro
-(MacBookPro18,2, Apple M1 Max, 10 cores, 32 GB), macOS 27.2.1, Release build: on the built-in
-display at 120 Hz in its "More Space" mode (2056 × 1329 points at 2×), and on an LG UltraFine 4K at
-60 Hz (3840 × 2160 points at 1×). The tables below are made from the results files by
-`Scripts/readme-tables.py` (medians, rounded as the app's own tables round; `--check` tells
-whether the README still matches the files). Each comes from one set (one session) of three runs
-a cell; the script can combine several sets of the same measurement (the median of the sets'
-medians, with the range across the sets), which the next session provides
-(`Scripts/next-session.sh --sets 3`). Where each table comes from, with Gingham's version and the
-bench's commit (recorded in the results from the next session on; these sets ran from the commits
-of their day, `git log`):
+Measured in one night, 2026-11-26, with `Scripts/next-session.sh` (its steps 1–6, one set each: 3
+runs of 10 s a cell, the engines in the balanced order with the settle wait) on a MacBook Pro
+(MacBookPro18,2, Apple M1 Max, 10 cores, 32 GB), macOS 27.2.1, Release build, on the built-in
+display at 120 Hz in its "More Space" mode (2056 × 1329 points at 2×): Gingham 1.2.0, the bench's
+commit 8301478, and a powermetrics recording of the whole session for the Mac's power (each run's
+`power` in the JSON lines; the session's log is
+[`results/session-2026-11-26-0025.log`](results/session-2026-11-26-0025.log)). Older: the tables
+of the LG UltraFine 4K at 60 Hz (3840 × 2160 points at 1×), measured on 2026-11-24 with Gingham
+1.1.3 and the engines of that day (before the competitors' hand-written numbers and the cell-based
+table's kept text, without the slot-based SwiftUI Table) and without the Mac's power, and the
+iPhone's (below). The tables are made from the results files by `Scripts/readme-tables.py`
+(medians, rounded as the app's own tables round; `--check` tells whether the README still matches
+the files). Each comes from one set of three runs a cell; the script can combine several sets of
+the same measurement (the median of the sets' medians, with the range across the sets), which
+`Scripts/next-session.sh --sets 3` provides and no table here does yet. Where each table comes
+from, with Gingham's version and the bench's commit (recorded in the results since 2026-11-26; the
+earlier sets ran from the commits of their day, `git log`):
 
 <!-- table: sources -->
 | Table | Set | Gingham | Bench commit | Engines' order |
 | --- | --- | --- | --- | --- |
-| Default window, sorts, Binance | [2026-11-24-0906](results/2026-11-24-0906.md) | 1.1.3 | not recorded | fixed, no settling |
-| 2040 × 1080 | [2026-11-24-1037](results/2026-11-24-1037.md) | 1.1.3 | not recorded | fixed, no settling |
-| 3840 × 2160 | [2026-11-25-0100](results/2026-11-25-0100.md) | 1.1.4 | not recorded | balanced, settled |
+| Default window, quiet table, scrolling, sorts, Binance | [2026-11-26-0025](results/2026-11-26-0025.md) | 1.2.0 | 8301478 | balanced, settled |
+| 2040 × 1080 | [2026-11-26-0255](results/2026-11-26-0255.md) | 1.2.0 | 8301478 | balanced, settled |
+| 3840 × 2160 | [2026-11-26-0356](results/2026-11-26-0356.md) | 1.2.0 | 8301478 | balanced, settled |
+| 30 updates a second, default window | [2026-11-26-0450](results/2026-11-26-0450.md) | 1.2.0 | 8301478 | balanced, settled |
+| 30 updates a second, 2040 × 1080 | [2026-11-26-0529](results/2026-11-26-0529.md) | 1.2.0 | 8301478 | balanced, settled |
+| 60 updates a second, 2040 × 1080 | [2026-11-26-0608](results/2026-11-26-0608.md) | 1.2.0 | 8301478 | balanced, settled |
 | 3840 × 2160, Gingham's earlier sets | [2026-11-24-0229](results/2026-11-24-0229.md) | 1.1.2 | not recorded | fixed, no settling |
 | 3840 × 2160, Gingham's earlier sets | [2026-11-24-1124](results/2026-11-24-1124.md) | 1.1.3 | not recorded | fixed, no settling |
 | 3840 × 2160, Gingham's earlier sets | [2026-11-24-1215](results/2026-11-24-1215.md) | 1.1.3 | not recorded | balanced, settled |
 | 3840 × 2160, Gingham's earlier sets | [2026-11-24-1456](results/2026-11-24-1456.md) | 1.1.3 | not recorded | balanced, settled |
+| 3840 × 2160, Gingham's earlier sets | [2026-11-25-0100](results/2026-11-25-0100.md) | 1.1.4 | not recorded | balanced, settled |
 | 4K display, filled | [2026-11-24-1258](results/2026-11-24-1258.md) | 1.1.3 | not recorded | balanced, settled |
 | 4K display, 3840 × 2160 | [2026-11-24-1345](results/2026-11-24-1345.md) | 1.1.3 | not recorded | balanced, settled |
 | 4K display, 3840 × 2160 | [2026-11-24-1648](results/2026-11-24-1648.md) | 1.1.3 | not recorded | balanced, settled |
 <!-- /table -->
 
-Gingham's version differs between them: 1.1.3 for most; the 3840 × 2160 set on the built-in display
-is of 1.1.4, whose only change is less GPU time of its own for large tables. The full tables (every
-column, the lowest and highest of the runs) are the `.md` files next to the JSON lines. The
-default-window and 2040 × 1080 sets, and the two earliest 3840 × 2160 ones, still ran in the fixed
-order of engines (Gingham first in each round, right after the tuned SwiftUI Table of the round
-before) with a 1-second pause and no settling; the others in the balanced order with the settle
-wait (above), as every set will from now on.
+The full tables (every column, the lowest and highest of the runs) are the `.md` files next to the
+JSON lines. Two of Gingham's earlier 3840 × 2160 sets (2026-11-24-0229 and 1124) still ran in the
+fixed order of engines (Gingham first in each round, right after the tuned SwiftUI Table of the
+round before) with a 1-second pause and no settling.
 
-**Not in these tables yet** (they come from the next session, `Scripts/next-session.sh`): the Mac's
-power (the cost tables' first number, "—" until then); the tables at an equal 30 and 60 updates a
-second (`--update-rate`); the slot-based SwiftUI Table (the tables' "SwiftUI Table, tuned" is the
-engine that rebuilds its rows on every reorder, so its row may well understate what SwiftUI can do
-with rows identified by place); the quiet table, scrolling and the number
-sort (its column is "—"); and the competitors' hand-written numbers and the cell-based table's kept
-text (the tuned NSTableView, the cell-based one and NSCollectionView were measured before those,
-and their rows will rise by whatever those save).
+**Not in these tables yet**: several sets of one measurement (each table is one night's, and at
+3840 × 2160 Gingham's numbers moved from set to set before, below); the 4K display with the
+engines of 2026-11-26 and the Mac's power; the iPhone with Gingham 1.2.0 and three recordings an
+engine.
 
-What changed since the first results (2026-11-23, Gingham 1.1.1, in `results/2026-11-23-*`): the
+What changed since the sets of 2026-11-24 and 25 (Gingham 1.1.3 and 1.1.4, still in `results/`):
+the competitors' hand-written numbers and the cell-based table's kept text (the tuned NSTableView,
+the cell-based one and NSCollectionView), the slot-based SwiftUI Table, the Mac's power, the equal
+update rates, the quiet table, scrolling and the number sort, and the bench's commit in every
+result. Since the first results (2026-11-23, Gingham 1.1.1, in `results/2026-11-23-*`): the
 balanced order and the settle wait; each run records the window server's idle GPU rate, so a screen
 that wasn't quiet shows; Binance requests are retried and a network failure is reported as such;
-every engine's columns take the same room on the screen; sorts are timed cold and repeated; no
-window state is saved during runs; and `wide-trades` is new.
+every engine's columns take the same room on the screen (NSCollectionView fills only the columns in
+view, as the others do); sorts are timed cold and repeated; no window state is saved during runs;
+and `wide-trades` is new.
 
 **Frames with new data a second (max = the display's rate)**: how many times a second the table's
 picture actually changed (at least one visible value new); like frames a second, but a frozen
@@ -654,39 +663,40 @@ measured window.
 <!-- table: default -->
 | Engine | Live trades: 20,000 rows, ~44,800 changes/s | Wide live trades: the same, 24 columns | Order book: 200,000 rows, ~243,500 changes/s | Trade feed: 1,000,000 rows, ~300,000 changes/s |
 | --- | --- | --- | --- | --- |
-| Gingham | 73 · 35% · 4 ms | 74 · 39% · 4 ms | 108 · 35% · 5 ms | 108 · 27% · 6 ms |
-| NSTableView | 42 · 96% · 12 ms | 21 · 96% · 25 ms | 19 · 99% · 27 ms | 10 · 99% · 49 ms |
-| NSTableView, tuned | 50 · 68% · 8 ms | 34 · 90% · 13 ms | 51 · 98% · 10 ms | 40 · 98% · 14 ms |
-| NSTableView, cell-based | 62 · 40% · 4 ms | 56 · 50% · 6 ms | 82 · 91% · 5 ms | 92 · 86% · 6 ms |
-| NSCollectionView | 50 · 68% · 8 ms | 33 · 91% · 13 ms | 51 · 98% · 10 ms | 41 · 98% · 14 ms |
-| SwiftUI Table | 1 · 100% · 5,035 ms (2 of 3 runs; 1 stuck) | 0 · 100% · 6,188 ms | stuck | stuck |
-| SwiftUI Table, tuned | 4 · 100% · 138 ms | 1 · 100% · 465 ms | stuck | 0 · 100% · 5,926 ms |
+| Gingham | 74 · 27% · 4 ms | 75 · 32% · 4 ms | 111 · 34% · 5 ms | 111 · 24% · 7 ms |
+| NSTableView | 43 · 96% · 12 ms | 22 · 95% · 25 ms | 19 · 99% · 26 ms | 10 · 99% · 48 ms |
+| NSTableView, tuned | 56 · 64% · 8 ms | 36 · 89% · 12 ms | 55 · 98% · 9 ms | 42 · 98% · 13 ms |
+| NSTableView, cell-based | 69 · 37% · 4 ms | 62 · 47% · 5 ms | 90 · 80% · 5 ms | 95 · 78% · 6 ms |
+| NSCollectionView | 56 · 64% · 8 ms | 42 · 83% · 9 ms | 55 · 98% · 9 ms | 72 · 97% · 8 ms |
+| SwiftUI Table | 0 · 100% · 4,471 ms | 0 · 100% · 5,926 ms | stuck | stuck |
+| SwiftUI Table, tuned | 4 · 100% · 137 ms | 1 · 100% · 465 ms | stuck | stuck |
+| SwiftUI Table, slots | 27 · 96% · 18 ms | 8 · 98% · 61 ms | 28 · 97% · 17 ms | 5 · 99% · 92 ms |
 <!-- /table -->
 
 On the trades, sorted by amount, only about 60% of the frames' changes reach the rows in view, so
 about 70–75 frames with new data a second is all any engine can show there; Gingham and the
 cell-based NSTableView apply every frame's changes (120 updates applied a second on all four), the
 others fewer. On the order book and trade feed nearly every update shows, up to the screen
-capture's ceiling of about 110 a second. On the wide trades NSCollectionView filled the labels of
-all 24 columns in its items while the other engines made only the 13 columns in view
-(`renderedColumns` in the JSON lines), more work for it; it now fills only the columns in view, as
-the others do.
+capture's ceiling of about 110 a second. Where both apply 120 updates a second, the cell-based
+table's main thread is busier (37–80% against Gingham's 24–34%) and the Mac draws more power with
+it (1.11–3.73 W against 0.71–1.22 W, below).
 
-What each engine costs: the whole Mac's CPU and GPU power, with the energy an update (from the next
-session; "—" until then) · the process's CPU (all threads, 100% is one core) · memory (its largest
-physical footprint). Main thread busy doesn't show work an engine does on other threads or on the
-GPU; these do (the power all of it).
+What each engine costs: the whole Mac's CPU and GPU power, with the energy an update · the
+process's CPU (all threads, 100% is one core) · memory (its largest physical footprint). Main
+thread busy doesn't show work an engine does on other threads or on the GPU; these do (the power
+all of it).
 
 <!-- table: default-cost -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
 | --- | --- | --- | --- | --- |
-| Gingham | — · 48% CPU · 94 MB | — · 51% CPU · 102 MB | — · 54% CPU · 145 MB | — · 68% CPU · 544 MB |
-| NSTableView | — · 97% CPU · 62 MB | — · 98% CPU · 92 MB | — · 107% CPU · 101 MB | — · 120% CPU · 531 MB |
-| NSTableView, tuned | — · 69% CPU · 73 MB | — · 92% CPU · 99 MB | — · 106% CPU · 94 MB | — · 121% CPU · 501 MB |
-| NSTableView, cell-based | — · 41% CPU · 141 MB | — · 52% CPU · 150 MB | — · 103% CPU · 170 MB | — · 113% CPU · 563 MB |
-| NSCollectionView | — · 69% CPU · 78 MB | — · 92% CPU · 108 MB | — · 107% CPU · 96 MB | — · 120% CPU · 506 MB |
-| SwiftUI Table | — · 100% CPU · 156 MB (2 of 3 runs; 1 stuck) | — · 100% CPU · 334 MB | stuck | stuck |
-| SwiftUI Table, tuned | — · 101% CPU · 107 MB | — · 101% CPU · 189 MB | stuck | — · 104% CPU · 3,087 MB |
+| Gingham | 0.71 W, 6 mJ an update · 33% CPU · 94 MB | 0.78 W, 6 mJ an update · 40% CPU · 102 MB | 1.04 W, 9 mJ an update · 54% CPU · 145 MB | 1.22 W, 10 mJ an update · 68% CPU · 530 MB |
+| NSTableView | 3.73 W, 77 mJ an update · 97% CPU · 62 MB | 3.57 W, 158 mJ an update · 97% CPU · 93 MB | 3.84 W, 196 mJ an update · 106% CPU · 101 MB | 4.01 W, 371 mJ an update · 120% CPU · 530 MB |
+| NSTableView, tuned | 2.62 W, 26 mJ an update · 65% CPU · 72 MB | 3.47 W, 74 mJ an update · 91% CPU · 97 MB | 4.17 W, 72 mJ an update · 106% CPU · 93 MB | 4.10 W, 94 mJ an update · 120% CPU · 500 MB |
+| NSTableView, cell-based | 1.11 W, 9 mJ an update · 38% CPU · 128 MB | 1.66 W, 14 mJ an update · 49% CPU · 150 MB | 3.58 W, 30 mJ an update · 90% CPU · 171 MB | 3.73 W, 31 mJ an update · 101% CPU · 544 MB |
+| NSCollectionView | 2.67 W, 26 mJ an update · 66% CPU · 77 MB | 3.34 W, 52 mJ an update · 85% CPU · 113 MB | 4.17 W, 71 mJ an update · 106% CPU · 98 MB | 4.31 W, 51 mJ an update · 119% CPU · 512 MB |
+| SwiftUI Table | 3.73 W, 12,581 mJ an update · 101% CPU · 147 MB | 3.69 W, 18,468 mJ an update · 100% CPU · 336 MB | stuck | stuck |
+| SwiftUI Table, tuned | 3.23 W, 873 mJ an update · 101% CPU · 120 MB | 3.23 W, 2,939 mJ an update · 101% CPU · 190 MB | stuck | stuck |
+| SwiftUI Table, slots | 3.45 W, 117 mJ an update · 97% CPU · 82 MB | 3.32 W, 397 mJ an update · 99% CPU · 142 MB | 3.52 W, 117 mJ an update · 105% CPU · 311 MB | 3.23 W, 593 mJ an update · 119% CPU · 1,637 MB |
 <!-- /table -->
 
 ### Live data, a large window (2040 × 1080 points of table, 4080 × 2160 pixels)
@@ -694,67 +704,79 @@ GPU; these do (the power all of it).
 The first number is the most an engine can have shown: **updates a second**, for Gingham the frames
 it presented (`framePresented`), for the others the updates applied. Neither says whether the frame
 showed a new value: on the live trades Gingham presented 120 frames a second while the screen pass
-saw its picture change 91 times, and the cell-based table applied 113 updates while its picture
-changed 67 times. So the screen pass's frames with new data follow (one run a cell; the capture tops
+saw its picture change 93 times, and the cell-based table applied 118 updates while its picture
+changed 71 times. So the screen pass's frames with new data follow (one run a cell; the capture tops
 out near 110 a second, so it can't tell 110 from 120), then main thread busy and data age.
 
 <!-- table: large -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
 | --- | --- | --- | --- | --- |
-| Gingham | 120 · screen 91 · 38% · 4 ms | 120 · screen 91 · 39% · 5 ms | 120 · screen 108 · 33% · 5 ms | 120 · screen 107 · 43% · 6 ms |
-| NSTableView | 27 · screen 27 · 96% · 21 ms | 10 · screen 10 · 98% · 54 ms | 10 · screen 10 · 99% · 52 ms | 4 · screen 4 · 100% · 116 ms |
-| NSTableView, tuned | 49 · screen 41 · 93% · 12 ms | 13 · screen 13 · 97% · 38 ms | 31 · screen 31 · 97% · 17 ms | 15 · screen 14 · 98% · 36 ms |
-| NSTableView, cell-based | 113 · screen 67 · 77% · 6 ms | 43 · screen 41 · 97% · 13 ms | 76 · screen 72 · 97% · 7 ms | 40 · screen 40 · 95% · 15 ms |
-| NSCollectionView | 49 · screen 41 · 93% · 12 ms | 13 · screen 13 · 97% · 39 ms | 32 · screen 31 · 97% · 17 ms | 14 · screen 14 · 97% · 36 ms |
+| Gingham | 120 · screen 93 · 32% · 4 ms | 120 · screen 94 · 37% · 4 ms | 120 · screen 112 · 36% · 5 ms | 120 · screen 112 · 39% · 6 ms |
+| NSTableView | 28 · screen 27 · 95% · 20 ms | 10 · screen 10 · 98% · 50 ms | 10 · screen 10 · 99% · 52 ms | 4 · screen 4 · 99% · 115 ms |
+| NSTableView, tuned | 53 · screen 43 · 92% · 12 ms | 13 · screen 13 · 97% · 40 ms | 33 · screen 32 · 98% · 16 ms | 15 · screen 15 · 98% · 35 ms |
+| NSTableView, cell-based | 118 · screen 71 · 71% · 6 ms | 48 · screen 43 · 96% · 12 ms | 80 · screen 76 · 95% · 7 ms | 45 · screen 43 · 98% · 13 ms |
+| NSCollectionView | 52 · screen 43 · 93% · 12 ms | 13 · screen 13 · 97% · 38 ms | 34 · screen 32 · 97% · 16 ms | 15 · screen 15 · 96% · 35 ms |
 | SwiftUI Table | stuck | stuck | stuck | stuck |
-| SwiftUI Table, tuned | 2 · screen 2 · 100% · 240 ms | 1 · screen 1 · 100% · 3,728 ms | stuck | 0 · screen 0 · 100% · 5,929 ms |
+| SwiftUI Table, tuned | 2 · screen 2 · 100% · 239 ms | 1 · screen 1 · 100% · 3,733 ms | stuck | stuck |
+| SwiftUI Table, slots | 18 · screen 18 · 97% · 29 ms | 5 · screen 5 · 99% · 93 ms | 18 · screen 17 · 99% · 29 ms | 4 · screen 3 · 99% · 142 ms |
 <!-- /table -->
 
 <!-- table: large-cost -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
 | --- | --- | --- | --- | --- |
-| Gingham | — · 48% CPU · 191 MB | — · 47% CPU · 202 MB | — · 50% CPU · 227 MB | — · 77% CPU · 636 MB |
-| NSTableView | — · 97% CPU · 93 MB | — · 99% CPU · 228 MB | — · 107% CPU · 134 MB | — · 120% CPU · 636 MB |
-| NSTableView, tuned | — · 94% CPU · 105 MB | — · 98% CPU · 230 MB | — · 106% CPU · 123 MB | — · 120% CPU · 628 MB |
-| NSTableView, cell-based | — · 79% CPU · 396 MB | — · 100% CPU · 365 MB | — · 113% CPU · 393 MB | — · 127% CPU · 734 MB |
-| NSCollectionView | — · 94% CPU · 107 MB | — · 98% CPU · 262 MB | — · 105% CPU · 121 MB | — · 119% CPU · 650 MB |
+| Gingham | 1.35 W, 11 mJ an update · 40% CPU · 176 MB | 1.84 W, 15 mJ an update · 45% CPU · 210 MB | 1.82 W, 15 mJ an update · 54% CPU · 228 MB | 2.75 W, 23 mJ an update · 72% CPU · 615 MB |
+| NSTableView | 3.68 W, 129 mJ an update · 96% CPU · 94 MB | 3.72 W, 372 mJ an update · 99% CPU · 230 MB | 3.80 W, 392 mJ an update · 106% CPU · 134 MB | 4.03 W, 916 mJ an update · 119% CPU · 623 MB |
+| NSTableView, tuned | 3.76 W, 72 mJ an update · 93% CPU · 102 MB | 3.82 W, 290 mJ an update · 99% CPU · 230 MB | 4.03 W, 122 mJ an update · 106% CPU · 123 MB | 4.25 W, 286 mJ an update · 120% CPU · 628 MB |
+| NSTableView, cell-based | 3.13 W, 27 mJ an update · 71% CPU · 445 MB | 3.82 W, 80 mJ an update · 100% CPU · 341 MB | 4.58 W, 57 mJ an update · 110% CPU · 383 MB | 4.81 W, 107 mJ an update · 130% CPU · 734 MB |
+| NSCollectionView | 3.77 W, 72 mJ an update · 94% CPU · 105 MB | 3.84 W, 286 mJ an update · 99% CPU · 263 MB | 4.04 W, 120 mJ an update · 106% CPU · 120 MB | 4.24 W, 283 mJ an update · 118% CPU · 648 MB |
 | SwiftUI Table | stuck | stuck | stuck | stuck |
-| SwiftUI Table, tuned | — · 101% CPU · 171 MB | — · 101% CPU · 279 MB | stuck | — · 103% CPU · 3,148 MB |
+| SwiftUI Table, tuned | 3.22 W, 1,532 mJ an update · 101% CPU · 169 MB | 3.26 W, 5,439 mJ an update · 101% CPU · 269 MB | stuck | stuck |
+| SwiftUI Table, slots | 3.43 W, 192 mJ an update · 98% CPU · 114 MB | 3.37 W, 623 mJ an update · 100% CPU · 206 MB | 3.50 W, 197 mJ an update · 106% CPU · 342 MB | 3.24 W, 925 mJ an update · 119% CPU · 1,720 MB |
 <!-- /table -->
+
+The energy an update is lowest with Gingham in all four (11–23 mJ, the cell-based table 27–107, the
+view-based tables 72–916, the SwiftUI Tables 192–5,439).
 
 ### A 3840 × 2160-point table (7680 × 4320 pixels), about a third of it on the MacBook's screen
 
 Not what a 4K display shows: the window is 3840 × 2160 points on a 2× screen, so every engine lays
 out and draws 7680 × 4320 pixels (107 rows of 20 points, SwiftUI's taller rows 89), four times a 4K
-display's, while the screen shows its top left (2056 × 1290 points). A real 4K display is the next
-section's, at 60 Hz: there the cell-based NSTableView applied 56 updates a second on the live trades,
-against 39 here. Updates (Gingham presented, the others applied) · screen (capturing so large a
-window costs the runs it measures: Gingham's 120 fell to 60 with it; a floor here) · main thread busy
-· data age; then the cost. Gingham 1.1.4, 2026-11-25.
+display's, while the screen shows its top left (2056 × 1290 points). A real 4K display is a later
+section's (older sets, at 60 Hz). Updates (Gingham presented, the others applied) · screen
+(capturing so large a window costs the runs it measures: Gingham's 120 fell to 60–71 with it; a
+floor here) · main thread busy · data age; then the cost. Gingham 1.2.0, 2026-11-26.
 
 <!-- table: macbook-4k -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
 | --- | --- | --- | --- | --- |
-| Gingham | 120 · screen 60 · 35% · 4 ms | 120 · screen 60 · 51% · 4 ms | 120 · screen 60 · 46% · 5 ms | 120 · screen 60 · 80% · 6 ms |
-| NSTableView | 14 · screen 14 · 97% · 37 ms | 5 · screen 5 · 100% · 101 ms | 4 · screen 4 · 100% · 114 ms | 2 · screen 2 · 100% · 263 ms |
-| NSTableView, tuned | 20 · screen 18 · 96% · 27 ms | 6 · screen 6 · 99% · 85 ms | 16 · screen 15 · 96% · 32 ms | 7 · screen 6 · 99% · 75 ms |
-| NSTableView, cell-based | 39 · screen 37 · 98% · 15 ms | 17 · screen 16 · 99% · 32 ms | 36 · screen 35 · 98% · 15 ms | 20 · screen 20 · 99% · 27 ms |
-| NSCollectionView | 20 · screen 19 · 96% · 28 ms | 6 · screen 6 · 99% · 86 ms | 16 · screen 16 · 96% · 32 ms | 7 · screen 6 · 99% · 75 ms |
+| Gingham | 120 · screen 70 · 37% · 4 ms | 120 · screen 61 · 47% · 4 ms | 120 · screen 61 · 38% · 5 ms | 120 · screen 60 · 61% · 6 ms |
+| NSTableView | 14 · screen 14 · 97% · 37 ms | 5 · screen 5 · 99% · 104 ms | 4 · screen 4 · 100% · 113 ms | 2 · screen 2 · 100% · 262 ms |
+| NSTableView, tuned | 20 · screen 19 · 96% · 26 ms | 6 · screen 6 · 99% · 83 ms | 16 · screen 16 · 97% · 31 ms | 7 · screen 7 · 99% · 72 ms |
+| NSTableView, cell-based | 42 · screen 39 · 98% · 13 ms | 18 · screen 17 · 99% · 30 ms | 38 · screen 37 · 99% · 14 ms | 21 · screen 21 · 99% · 26 ms |
+| NSCollectionView | 20 · screen 19 · 96% · 26 ms | 6 · screen 6 · 99% · 83 ms | 16 · screen 16 · 96% · 31 ms | 7 · screen 7 · 99% · 72 ms |
 | SwiftUI Table | stuck | stuck | stuck | stuck |
-| SwiftUI Table, tuned | 1 · screen 1 · 100% · 1,047 ms | 0 · screen 0 · 100% · 4,487 ms | stuck | stuck |
+| SwiftUI Table, tuned | 1 · screen 1 · 100% · 981 ms | 0 · screen 0 · 100% · 4,475 ms | stuck | stuck |
+| SwiftUI Table, slots | 9 · screen 9 · 98% · 54 ms | 3 · screen 3 · 100% · 175 ms | 9 · screen 9 · 98% · 56 ms | 2 · screen 2 · 100% · 255 ms |
 <!-- /table -->
 
 <!-- table: macbook-4k-cost -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
 | --- | --- | --- | --- | --- |
-| Gingham | — · 43% CPU · 537 MB | — · 58% CPU · 560 MB | — · 62% CPU · 553 MB | — · 114% CPU · 956 MB |
-| NSTableView | — · 98% CPU · 152 MB | — · 100% CPU · 414 MB | — · 107% CPU · 169 MB | — · 119% CPU · 746 MB |
-| NSTableView, tuned | — · 97% CPU · 153 MB | — · 100% CPU · 414 MB | — · 104% CPU · 176 MB | — · 121% CPU · 817 MB |
-| NSTableView, cell-based | — · 101% CPU · 1,289 MB | — · 102% CPU · 1,150 MB | — · 114% CPU · 1,161 MB | — · 131% CPU · 1,391 MB |
-| NSCollectionView | — · 97% CPU · 159 MB | — · 100% CPU · 498 MB | — · 104% CPU · 175 MB | — · 120% CPU · 869 MB |
+| Gingham | 3.21 W, 27 mJ an update · 46% CPU · 536 MB | 4.62 W, 38 mJ an update · 52% CPU · 525 MB | 3.84 W, 32 mJ an update · 54% CPU · 587 MB | 7.27 W, 61 mJ an update · 94% CPU · 944 MB |
+| NSTableView | 3.62 W, 252 mJ an update · 98% CPU · 153 MB | 3.64 W, 727 mJ an update · 100% CPU · 415 MB | 3.75 W, 852 mJ an update · 107% CPU · 174 MB | 4.01 W, 2,109 mJ an update · 119% CPU · 757 MB |
+| NSTableView, tuned | 3.68 W, 183 mJ an update · 97% CPU · 154 MB | 3.66 W, 601 mJ an update · 100% CPU · 416 MB | 3.85 W, 235 mJ an update · 105% CPU · 176 MB | 4.13 W, 581 mJ an update · 120% CPU · 814 MB |
+| NSTableView, cell-based | 4.56 W, 110 mJ an update · 100% CPU · 1,337 MB | 4.09 W, 233 mJ an update · 102% CPU · 1,265 MB | 5.31 W, 141 mJ an update · 115% CPU · 1,176 MB | 4.95 W, 233 mJ an update · 132% CPU · 1,394 MB |
+| NSCollectionView | 3.75 W, 187 mJ an update · 97% CPU · 158 MB | 3.68 W, 604 mJ an update · 100% CPU · 499 MB | 3.83 W, 235 mJ an update · 104% CPU · 176 MB | 4.16 W, 583 mJ an update · 120% CPU · 869 MB |
 | SwiftUI Table | stuck | stuck | stuck | stuck |
-| SwiftUI Table, tuned | — · 101% CPU · 265 MB | — · 100% CPU · 445 MB | stuck | stuck |
+| SwiftUI Table, tuned | 3.22 W, 3,222 mJ an update · 101% CPU · 259 MB | 3.22 W, 16,076 mJ an update · 100% CPU · 444 MB | stuck | stuck |
+| SwiftUI Table, slots | 3.33 W, 362 mJ an update · 99% CPU · 171 MB | 3.34 W, 1,194 mJ an update · 100% CPU · 362 MB | 3.38 W, 376 mJ an update · 106% CPU · 400 MB | 3.28 W, 1,653 mJ an update · 119% CPU · 1,871 MB |
 <!-- /table -->
+
+At this size the Mac draws more power with Gingham than with the AppKit tables on the wide trades
+and the trade feed (4.62 and 7.27 W, against 3.64–4.09 and 4.01–4.95 W), about as much on the order
+book (3.84 against 3.75–5.31 W) and less on the live trades (3.21 against 3.62–4.56 W), while it
+presents 120 frames a second against their 2–42 updates; an update takes 27–61 mJ with Gingham,
+110–2,109 with the AppKit tables.
 
 Gingham's numbers at this size moved from set to set more than within one. Presented frames · main
 thread busy (lowest–highest of the set's three runs) in every set measured at this size on the
@@ -768,17 +790,174 @@ built-in display (0229 and 1124 in the fixed order, the others balanced):
 | [2026-11-24-1215](results/2026-11-24-1215.md) | 1.1.3 | 120 · 35% (35–39) | 120 · 50% (49–50) | 120 · 44% (43–45) | 120 · 76% (75–81) |
 | [2026-11-24-1456](results/2026-11-24-1456.md) | 1.1.3 | 120 · 26% (25–28) | 116 · 68% (63–69) | 115 · 67% (62–73) | 120 · 79% (79–81) |
 | [2026-11-25-0100](results/2026-11-25-0100.md) | 1.1.4 | 120 · 35% | 120 · 51% | 120 · 46% (45–47) | 120 · 80% (80–86) |
+| [2026-11-26-0356](results/2026-11-26-0356.md) | 1.2.0 | 120 · 37% | 120 · 47% | 120 · 38% | 120 · 61% (61–62) |
 <!-- /table -->
 
-On the order book its main thread was 44–87% busy depending on the set, with the runs of each set
-close together; the competitors stayed within a few percent from set to set (they're saturated).
-Until the next session's three sets settle it, read Gingham's main thread at this size as that range,
-not as the one set in the table above.
+With 1.1.2–1.1.4 its main thread was 44–87% busy on the order book depending on the set, with the
+runs of each set close together, and 76–81% on the trade feed in every set; the competitors stayed
+within a few percent from set to set (they're saturated). The one set of 1.2.0 is below all of them
+on the wide trades, the order book and the trade feed (47%, 38%, 61%) and above them on the live
+trades (37% against 26–35%). Until repeated sets (`--sets 3`) show how much 1.2.0 moves from set to
+set, read its numbers at this size as one night's.
 
-### Live data on a 4K display at 60 Hz (LG UltraFine, 3840 × 2160 points at 1×)
+### Live data at an equal rate: 30 and 60 updates a second
 
-Updates (Gingham presented, the others applied), at most 60 · screen · main thread busy · data age.
-A table filling the display (3700 × 1890 points):
+With `--update-rate` every engine gets the changes in one batch 30 (or 60) times a second, as an app
+that coalesces its updates does, while the display link keeps the display's rate; where several
+engines hold the rate, they compare by what it costs them. No screen pass. Updates (Gingham
+presented, the others applied; at most the rate) · main thread busy · callbacks a second (at most
+120: how often the main thread got to a refresh, between the updates too) · data age (with the wait
+for the next update, about half its interval on average); then the cost.
+
+30 updates a second, the default window:
+
+<!-- table: rate30-default -->
+| Engine | Live trades | Wide live trades | Order book | Trade feed |
+| --- | --- | --- | --- | --- |
+| Gingham | 30 · 19% · callbacks 120 · 20 ms | 30 · 23% · callbacks 120 · 20 ms | 30 · 23% · callbacks 120 · 17 ms | 30 · 16% · callbacks 120 · 19 ms |
+| NSTableView | 30 · 62% · callbacks 60 · 20 ms | 23 · 96% · callbacks 23 · 25 ms | 20 · 99% · callbacks 20 · 26 ms | 11 · 99% · callbacks 11 · 48 ms |
+| NSTableView, tuned | 30 · 39% · callbacks 106 · 20 ms | 30 · 71% · callbacks 59 · 18 ms | 30 · 55% · callbacks 72 · 17 ms | 30 · 67% · callbacks 60 · 19 ms |
+| NSTableView, cell-based | 30 · 27% · callbacks 120 · 20 ms | 30 · 30% · callbacks 120 · 20 ms | 30 · 29% · callbacks 120 · 17 ms | 30 · 28% · callbacks 120 · 19 ms |
+| NSCollectionView | 30 · 39% · callbacks 106 · 20 ms | 30 · 56% · callbacks 78 · 18 ms | 30 · 56% · callbacks 65 · 17 ms | 30 · 41% · callbacks 120 · 19 ms |
+| SwiftUI Table | 0 · 100% · callbacks 0 · 4,900 ms | 0 · 100% · callbacks 0 · 6,118 ms | stuck | stuck |
+| SwiftUI Table, tuned | 4 · 100% · callbacks 4 · 137 ms | 1 · 100% · callbacks 1 · 463 ms | stuck | stuck |
+| SwiftUI Table, slots | 28 · 92% · callbacks 32 · 21 ms | 8 · 98% · callbacks 8 · 60 ms | 30 · 98% · callbacks 30 · 17 ms | 6 · 99% · callbacks 6 · 92 ms |
+<!-- /table -->
+
+<!-- table: rate30-default-cost -->
+| Engine | Live trades | Wide live trades | Order book | Trade feed |
+| --- | --- | --- | --- | --- |
+| Gingham | 0.24 W, 8 mJ an update · 26% CPU · 84 MB | 0.29 W, 10 mJ an update · 31% CPU · 92 MB | 0.56 W, 19 mJ an update · 39% CPU · 135 MB | 0.65 W, 22 mJ an update · 58% CPU · 525 MB |
+| NSTableView | 2.45 W, 82 mJ an update · 63% CPU · 62 MB | 3.58 W, 158 mJ an update · 97% CPU · 93 MB | 3.82 W, 196 mJ an update · 107% CPU · 102 MB | 4.00 W, 370 mJ an update · 120% CPU · 523 MB |
+| NSTableView, tuned | 1.31 W, 44 mJ an update · 40% CPU · 63 MB | 2.77 W, 92 mJ an update · 72% CPU · 96 MB | 2.45 W, 82 mJ an update · 63% CPU · 93 MB | 3.05 W, 102 mJ an update · 88% CPU · 500 MB |
+| NSTableView, cell-based | 0.53 W, 18 mJ an update · 30% CPU · 125 MB | 0.70 W, 23 mJ an update · 32% CPU · 135 MB | 0.84 W, 28 mJ an update · 38% CPU · 157 MB | 1.19 W, 40 mJ an update · 52% CPU · 529 MB |
+| NSCollectionView | 1.31 W, 44 mJ an update · 40% CPU · 67 MB | 2.22 W, 74 mJ an update · 58% CPU · 106 MB | 2.47 W, 82 mJ an update · 63% CPU · 95 MB | 2.07 W, 69 mJ an update · 62% CPU · 503 MB |
+| SwiftUI Table | 3.72 W, 12,387 mJ an update · 100% CPU · 169 MB | 3.64 W, 18,189 mJ an update · 101% CPU · 337 MB | stuck | stuck |
+| SwiftUI Table, tuned | 3.22 W, 871 mJ an update · 101% CPU · 121 MB | 3.22 W, 2,927 mJ an update · 101% CPU · 190 MB | stuck | stuck |
+| SwiftUI Table, slots | 3.29 W, 117 mJ an update · 93% CPU · 81 MB | 3.32 W, 391 mJ an update · 100% CPU · 144 MB | 3.51 W, 117 mJ an update · 105% CPU · 310 MB | 3.23 W, 580 mJ an update · 119% CPU · 1,635 MB |
+<!-- /table -->
+
+30 updates a second, 2040 × 1080:
+
+<!-- table: rate30-large -->
+| Engine | Live trades | Wide live trades | Order book | Trade feed |
+| --- | --- | --- | --- | --- |
+| Gingham | 30 · 22% · callbacks 120 · 20 ms | 30 · 24% · callbacks 120 · 20 ms | 30 · 24% · callbacks 119 · 17 ms | 30 · 21% · callbacks 120 · 19 ms |
+| NSTableView | 28 · 95% · callbacks 28 · 21 ms | 10 · 98% · callbacks 10 · 54 ms | 10 · 99% · callbacks 10 · 52 ms | 4 · 99% · callbacks 4 · 115 ms |
+| NSTableView, tuned | 30 · 63% · callbacks 70 · 18 ms | 13 · 98% · callbacks 13 · 38 ms | 30 · 89% · callbacks 38 · 17 ms | 15 · 98% · callbacks 15 · 36 ms |
+| NSTableView, cell-based | 30 · 35% · callbacks 120 · 17 ms | 30 · 71% · callbacks 60 · 18 ms | 30 · 42% · callbacks 120 · 17 ms | 30 · 67% · callbacks 60 · 19 ms |
+| NSCollectionView | 30 · 63% · callbacks 70 · 18 ms | 14 · 97% · callbacks 14 · 37 ms | 30 · 87% · callbacks 39 · 17 ms | 15 · 96% · callbacks 15 · 35 ms |
+| SwiftUI Table | stuck | stuck | stuck | stuck |
+| SwiftUI Table, tuned | 2 · 100% · callbacks 2 · 238 ms | 1 · 100% · callbacks 1 · 3,725 ms | stuck | stuck |
+| SwiftUI Table, slots | 18 · 97% · callbacks 18 · 29 ms | 6 · 99% · callbacks 6 · 91 ms | 18 · 98% · callbacks 18 · 29 ms | 4 · 99% · callbacks 4 · 142 ms |
+<!-- /table -->
+
+<!-- table: rate30-large-cost -->
+| Engine | Live trades | Wide live trades | Order book | Trade feed |
+| --- | --- | --- | --- | --- |
+| Gingham | 0.44 W, 15 mJ an update · 28% CPU · 141 MB | 0.62 W, 21 mJ an update · 30% CPU · 157 MB | 0.76 W, 25 mJ an update · 39% CPU · 193 MB | 0.96 W, 32 mJ an update · 55% CPU · 585 MB |
+| NSTableView | 3.65 W, 129 mJ an update · 96% CPU · 94 MB | 3.68 W, 375 mJ an update · 99% CPU · 230 MB | 3.82 W, 390 mJ an update · 107% CPU · 135 MB | 4.04 W, 898 mJ an update · 120% CPU · 623 MB |
+| NSTableView, tuned | 2.54 W, 85 mJ an update · 64% CPU · 95 MB | 3.82 W, 285 mJ an update · 99% CPU · 232 MB | 3.70 W, 123 mJ an update · 97% CPU · 123 MB | 4.25 W, 288 mJ an update · 120% CPU · 629 MB |
+| NSTableView, cell-based | 1.16 W, 39 mJ an update · 37% CPU · 333 MB | 2.79 W, 93 mJ an update · 73% CPU · 344 MB | 1.80 W, 60 mJ an update · 51% CPU · 371 MB | 3.40 W, 113 mJ an update · 94% CPU · 733 MB |
+| NSCollectionView | 2.56 W, 85 mJ an update · 64% CPU · 97 MB | 3.84 W, 280 mJ an update · 99% CPU · 264 MB | 3.67 W, 122 mJ an update · 95% CPU · 121 MB | 4.22 W, 283 mJ an update · 119% CPU · 648 MB |
+| SwiftUI Table | stuck | stuck | stuck | stuck |
+| SwiftUI Table, tuned | 3.22 W, 1,532 mJ an update · 101% CPU · 170 MB | 3.24 W, 5,405 mJ an update · 101% CPU · 272 MB | stuck | stuck |
+| SwiftUI Table, slots | 3.43 W, 190 mJ an update · 98% CPU · 113 MB | 3.36 W, 602 mJ an update · 100% CPU · 214 MB | 3.50 W, 197 mJ an update · 106% CPU · 342 MB | 3.28 W, 937 mJ an update · 119% CPU · 1,720 MB |
+<!-- /table -->
+
+60 updates a second, 2040 × 1080:
+
+<!-- table: rate60-large -->
+| Engine | Live trades | Wide live trades | Order book | Trade feed |
+| --- | --- | --- | --- | --- |
+| Gingham | 60 · 32% · callbacks 120 · 8 ms | 60 · 29% · callbacks 120 · 12 ms | 60 · 29% · callbacks 120 · 9 ms | 60 · 27% · callbacks 120 · 10 ms |
+| NSTableView | 28 · 95% · callbacks 28 · 20 ms | 10 · 98% · callbacks 10 · 51 ms | 10 · 99% · callbacks 10 · 52 ms | 4 · 99% · callbacks 4 · 115 ms |
+| NSTableView, tuned | 50 · 90% · callbacks 55 · 12 ms | 14 · 97% · callbacks 14 · 38 ms | 34 · 98% · callbacks 34 · 16 ms | 15 · 97% · callbacks 15 · 35 ms |
+| NSTableView, cell-based | 60 · 51% · callbacks 120 · 8 ms | 47 · 96% · callbacks 48 · 12 ms | 60 · 73% · callbacks 116 · 9 ms | 45 · 99% · callbacks 45 · 13 ms |
+| NSCollectionView | 50 · 90% · callbacks 56 · 12 ms | 13 · 97% · callbacks 13 · 39 ms | 34 · 98% · callbacks 34 · 15 ms | 15 · 96% · callbacks 15 · 35 ms |
+| SwiftUI Table | stuck | stuck | stuck | stuck |
+| SwiftUI Table, tuned | 2 · 100% · callbacks 2 · 239 ms | 1 · 100% · callbacks 1 · 3,732 ms | stuck | stuck |
+| SwiftUI Table, slots | 18 · 97% · callbacks 18 · 29 ms | 5 · 99% · callbacks 5 · 93 ms | 18 · 98% · callbacks 18 · 29 ms | 4 · 99% · callbacks 4 · 141 ms |
+<!-- /table -->
+
+<!-- table: rate60-large-cost -->
+| Engine | Live trades | Wide live trades | Order book | Trade feed |
+| --- | --- | --- | --- | --- |
+| Gingham | 0.74 W, 12 mJ an update · 40% CPU · 140 MB | 1.04 W, 17 mJ an update · 36% CPU · 156 MB | 1.10 W, 18 mJ an update · 45% CPU · 227 MB | 1.54 W, 26 mJ an update · 59% CPU · 616 MB |
+| NSTableView | 3.66 W, 129 mJ an update · 96% CPU · 94 MB | 3.72 W, 374 mJ an update · 99% CPU · 229 MB | 3.81 W, 389 mJ an update · 106% CPU · 136 MB | 4.03 W, 933 mJ an update · 119% CPU · 622 MB |
+| NSTableView, tuned | 3.65 W, 73 mJ an update · 91% CPU · 105 MB | 3.80 W, 282 mJ an update · 98% CPU · 229 MB | 3.99 W, 119 mJ an update · 106% CPU · 123 MB | 4.25 W, 285 mJ an update · 119% CPU · 629 MB |
+| NSTableView, cell-based | 2.12 W, 35 mJ an update · 52% CPU · 330 MB | 3.80 W, 81 mJ an update · 99% CPU · 346 MB | 3.47 W, 58 mJ an update · 84% CPU · 381 MB | 4.80 W, 107 mJ an update · 130% CPU · 734 MB |
+| NSCollectionView | 3.66 W, 73 mJ an update · 91% CPU · 107 MB | 3.83 W, 285 mJ an update · 99% CPU · 263 MB | 4.08 W, 119 mJ an update · 106% CPU · 121 MB | 4.22 W, 281 mJ an update · 118% CPU · 648 MB |
+| SwiftUI Table | stuck | stuck | stuck | stuck |
+| SwiftUI Table, tuned | 3.22 W, 1,535 mJ an update · 101% CPU · 170 MB | 3.25 W, 5,422 mJ an update · 101% CPU · 270 MB | stuck | stuck |
+| SwiftUI Table, slots | 3.43 W, 189 mJ an update · 98% CPU · 114 MB | 3.34 W, 630 mJ an update · 100% CPU · 208 MB | 3.49 W, 197 mJ an update · 106% CPU · 343 MB | 3.26 W, 933 mJ an update · 119% CPU · 1,720 MB |
+<!-- /table -->
+
+At 30 a second in the default window, Gingham, the tuned and cell-based NSTableViews and
+NSCollectionView hold the rate in all four scenarios (the typical NSTableView on the live trades,
+the slot-based SwiftUI Table on the order book); at 2040 × 1080, Gingham and the cell-based
+NSTableView in all four, the tuned NSTableView and NSCollectionView on the live trades and the
+order book. Where an engine held 30, the Mac drew 0.24–0.96 W with Gingham and 0.53–3.70 W with the
+others; with the closest, the cell-based table, 0.53–1.19 W in the default window and 1.16–3.40 W at
+2040 × 1080, against Gingham's 0.24–0.65 and 0.44–0.96 W. At 60 a second (2040 × 1080) Gingham holds
+the rate in all four (0.74–1.54 W), the cell-based NSTableView on the live trades and the order book
+(2.12 and 3.47 W), no other engine in any. The callbacks show the room left: Gingham's main thread
+got to every refresh (119–120 callbacks a second) at both rates and sizes, the cell-based table's in
+the default window and, at 2040 × 1080, on the live trades and the order book (116–120); the tuned
+NSTableView's and NSCollectionView's to 59–120 in the default window and 38–70 at 2040 × 1080 where
+they held 30.
+
+### A quiet table and scrolling (the default window)
+
+Where every engine should keep up, the question is what each costs. `quiet-table`: 5,000 trades,
+10 changing a second, sorted by amount; `scroll`: 100,000 static trades scrolled down at 200 rows a
+second (an update is a step of the scroll; there's no data age). Updates (Gingham presented, the
+others applied) · screen (frames with new data, one run of the screen pass) · main thread busy ·
+data age; then the cost.
+
+<!-- table: quiet-scroll -->
+| Engine | Quiet table: 5,000 rows, 10 changes/s | Scrolling 100,000 rows |
+| --- | --- | --- |
+| Gingham | 10 · screen 0 · 5% · 8 ms | 120 · screen 110 · 57% |
+| NSTableView | 10 · screen 0 · 26% · 8 ms | 120 · screen 90 · 79% |
+| NSTableView, tuned | 10 · screen 0 · 2% · 8 ms | 120 · screen 94 · 78% |
+| NSTableView, cell-based | 10 · screen 0 · 2% · 8 ms | 120 · screen 108 · 40% |
+| NSCollectionView | 10 · screen 0 · 2% · 8 ms | 55 · screen 50 · 98% |
+| SwiftUI Table | 10 · screen 0 · 43% · 8 ms | 117 · screen 83 · 92% |
+| SwiftUI Table, tuned | 4 · screen 0 · 100% · 115 ms | 102 · screen 74 · 96% |
+| SwiftUI Table, slots | 10 · screen 0 · 5% · 8 ms | 104 · screen 74 · 96% |
+<!-- /table -->
+
+<!-- table: quiet-scroll-cost -->
+| Engine | Quiet table: 5,000 rows, 10 changes/s | Scrolling 100,000 rows |
+| --- | --- | --- |
+| Gingham | 0.11 W, 11 mJ an update · 9% CPU · 78 MB | 0.57 W, 5 mJ an update · 34% CPU · 106 MB |
+| NSTableView | 0.40 W, 40 mJ an update · 27% CPU · 37 MB | 3.75 W, 31 mJ an update · 78% CPU · 65 MB |
+| NSTableView, tuned | 0.03 W, 3 mJ an update · 4% CPU · 36 MB | 3.76 W, 31 mJ an update · 77% CPU · 66 MB |
+| NSTableView, cell-based | 0.04 W, 4 mJ an update · 4% CPU · 48 MB | 1.31 W, 11 mJ an update · 45% CPU · 166 MB |
+| NSCollectionView | 0.03 W, 3 mJ an update · 4% CPU · 33 MB | 4.09 W, 75 mJ an update · 98% CPU · 83 MB |
+| SwiftUI Table | 1.38 W, 138 mJ an update · 43% CPU · 64 MB | 3.50 W, 30 mJ an update · 92% CPU · 133 MB |
+| SwiftUI Table, tuned | 3.21 W, 803 mJ an update · 100% CPU · 79 MB | 3.65 W, 36 mJ an update · 96% CPU · 196 MB |
+| SwiftUI Table, slots | 0.04 W, 4 mJ an update · 7% CPU · 56 MB | 3.65 W, 35 mJ an update · 96% CPU · 196 MB |
+<!-- /table -->
+
+On the quiet table every engine but the tuned SwiftUI Table (which rebuilds its rows at every
+reorder) applies the 10 updates a second, and the screen pass saw no frame with new data (the rows
+in view, the top of 5,000 by amount, didn't change during it). The tuned AppKit tables cost least
+there: main thread 2% busy, 4% CPU, 0.03–0.04 W, against Gingham's 5%, 9% and 0.11 W (the slot-based
+SwiftUI Table 5%, 7% and 0.04 W); the typical NSTableView and SwiftUI Table, which sort all the rows
+again at every update, 26% and 43% (0.40 and 1.38 W). Scrolling, Gingham presents a frame at every
+refresh with its main thread 57% busy, and the cell-based NSTableView applies every step with 40%
+(110 and 108 frames with new data a second); the Mac's power is lowest with Gingham (0.57 W, the
+cell-based table 1.31 W, the others 3.50–4.09 W). NSCollectionView keeps less than half the steps
+(55 a second at 98% busy).
+
+### Live data on a 4K display at 60 Hz (LG UltraFine, 3840 × 2160 points at 1×): older sets
+
+Measured on 2026-11-24 with Gingham 1.1.3 and the engines of that day (before the competitors'
+hand-written numbers and the cell-based table's kept text; no slot-based SwiftUI Table), without
+the Mac's power. Updates (Gingham presented, the others applied), at most 60 · screen · main thread
+busy · data age. A table filling the display (3700 × 1890 points):
 
 <!-- table: display-4k-fill -->
 | Engine | Live trades | Wide live trades | Order book | Trade feed |
@@ -814,59 +993,65 @@ Each run's process sorts three times, each from the unsorted order: its column (
 cold), the other column, its column again (a repeated sort). Time to the sorted order on the
 screen, cold (lowest–highest of the three runs) · repeated (lowest–highest) · longest stall of the
 cold sort (the screen kept drawing when it stays near 8 ms). The times end at the next display-link
-callback, so they move in steps of 8.3 ms: the closest ones (by pair, 0.07 against 0.09 s) are one
-to three frames apart. By pair has about 500 distinct texts, by account nearly a million. The tuned
-engines keep a static table's sorted columns' keys, the typical ones sort from scratch.
+callback, so they move in steps of 8.3 ms: the closest ones (by pair, 0.07 against 0.09 s; by
+amount, 0.04 against 0.07 s) are about three and four frames apart. By pair has about 500 distinct
+texts, by account nearly a million. The tuned engines keep a static table's sorted columns' keys,
+the typical ones sort from scratch.
 
 What the text sorts compare: Gingham sorts with its own sort keys; NSTableView, NSCollectionView
 and SwiftUI leave sorting to the app, whose way to Finder's order is Foundation's
 `localizedStandardCompare`, one call per comparison on one thread (it doesn't get faster across
 cores, above; Foundation has no public sort key for it). By account, nearly a million distinct texts
-take about 20 million comparisons: the 7.9 s of every app-side engine's cold sort is Foundation's
+take about 20 million comparisons: the 7.8–8.0 s of the AppKit engines' cold sorts is Foundation's
 comparison, not the table's work, and an app that sorts such a column by a plain comparison, or with
 keys of its own, doesn't pay it. By pair the comparisons are few, and the times are mostly the
-number sort and the redraw. By amount, a number, nothing is compared as text at all (from the next
-session).
+number sort and the redraw. By amount, a number, nothing is compared as text at all: Gingham took
+0.04 s, the tuned AppKit tables 0.07–0.09 s, the typical NSTableView, which sorts on the main thread,
+0.29 s.
 
 <!-- table: sorts -->
 | Engine | By pair | By account | By amount (a number) |
 | --- | --- | --- | --- |
-| Gingham | 0.07 s (0.06–0.08) · 0.01 s · 17 ms | 0.19 s (0.18–0.20) · 0.02 s · 17 ms | — |
-| NSTableView | 5.17 s (5.17–5.23) · 5.22 s (5.21–5.23) · 5,173 ms | 7.98 s (7.98–8.02) · 7.96 s (7.95–8.03) · 7,985 ms | — |
-| NSTableView, tuned | 0.09 s (0.08–0.17) · 0.13 s · 17 ms | 7.91 s (7.87–8.04) · 0.08 s (0.08–0.15) · 21 ms | — |
-| NSTableView, cell-based | 0.09 s (0.08–0.09) · 0.04 s (0.04–0.05) · 8 ms | 7.90 s (7.85–7.91) · 0.07 s · 17 ms | — |
-| NSCollectionView | 0.11 s (0.09–0.11) · 0.07 s (0.07–0.08) · 25 ms | 7.90 s (7.88–7.95) · 0.10 s (0.09–0.10) · 31 ms | — |
-| SwiftUI Table | no sorted order within 60 s | no sorted order within 60 s | — |
-| SwiftUI Table, tuned | 0.94 s (0.55–0.96) · 0.88 s (0.87–0.89) · 838 ms | 13.19 s (12.93–13.56) · 0.91 s (0.53–0.91) · 892 ms | — |
+| Gingham | 0.07 s (0.07–0.08) · 0.01 s (0.01–0.02) · 17 ms | 0.19 s (0.19–0.20) · 0.02 s (0.02–0.03) · 17 ms | 0.04 s · 0.03 s (0.03–0.04) · 13 ms |
+| NSTableView | 5.22 s (5.22–5.23) · 5.15 s (5.15–5.16) · 5,222 ms | 8.00 s (7.99–8.01) · 7.97 s (7.96–7.98) · 8,002 ms | 0.29 s (0.28–0.29) · 0.22 s (0.22–0.28) · 286 ms |
+| NSTableView, tuned | 0.17 s · 0.12 s (0.12–0.13) · 79 ms | 7.94 s (7.89–7.95) · 0.16 s (0.15–0.16) · 80 ms | 0.09 s (0.08–0.16) · 0.15 s (0.08–0.16) · 17 ms |
+| NSTableView, cell-based | 0.09 s · 0.05 s (0.04–0.05) · 8 ms | 7.82 s (7.80–7.85) · 0.07 s (0.07–0.08) · 9 ms | 0.08 s · 0.07 s · 8 ms |
+| NSCollectionView | 0.12 s (0.12–0.13) · 0.04 s (0.04–0.07) · 36 ms | 7.86 s (7.80–7.87) · 0.06 s (0.06–0.07) · 8 ms | 0.07 s (0.06–0.10) · 0.11 s (0.07–0.11) · 8 ms |
+| SwiftUI Table | no sorted order within 60 s | no sorted order within 60 s | no sorted order within 60 s |
+| SwiftUI Table, tuned | 0.94 s (0.54–0.95) · 0.88 s (0.48–0.88) · 842 ms | 13.46 s (12.90–13.66) · 0.91 s · 902 ms | 0.96 s (0.56–0.96) · 0.91 s · 850 ms |
+| SwiftUI Table, slots | 1.19 s (1.17–1.22) · 1.13 s (1.11–1.14) · 1,060 ms | 13.80 s (13.77–14.12) · 1.36 s (1.35–1.37) · 1,300 ms | 1.38 s (1.38–1.39) · 1.37 s · 1,267 ms |
 <!-- /table -->
 
 ### Binance (live market: numbers vary)
 
 Tickers (about 3,100 pairs, sorted by trades) and order books (about 55,000 levels of 6 pairs,
-sorted by pair and then price). Gingham and the three tuned AppKit engines keep up with both: they
-apply what arrives as it arrives (77–99 updates a second on the tickers, the data's age 4–5 ms), so
-how often each one's picture changed followed how busy the market was during its run (one run each,
-a different minute of the market), not the engine, and isn't compared here. What compares is how
-busy each main thread was keeping up: main thread busy (lowest–highest of the three runs, each a
-different market) · data age (from arrival). The order books' rows in view are 5,000 levels from the
-market and hardly change: there it's the cost of keeping 55,000 levels sorted while the books
-change.
+sorted by pair and then price). Gingham and the three tuned AppKit engines keep up with both, the
+slot-based SwiftUI Table with the tickers: they apply what arrives as it arrives (92–99 updates a
+second on the tickers, the data's age 4 ms), so how often each one's picture changed followed how
+busy the market was during its run (one run each, a different minute of the market), not the
+engine, and isn't compared here. What compares is how busy each main thread was keeping up: main
+thread busy (lowest–highest of the three runs, each a different market) · data age (from arrival).
+The order books' rows in view are 5,000 levels from the market and hardly change: there it's the
+cost of keeping 55,000 levels sorted while the books change.
 
 <!-- table: binance -->
 | Engine | Tickers | Order books |
 | --- | --- | --- |
-| Gingham | 17% (15–17) · 4 ms | 8% (7–8) · 4 ms |
-| NSTableView | 84% (83–85) · 12 ms | 95% (93–97) · 35 ms |
-| NSTableView, tuned | 21% (21–22) · 4 ms | 23% (22–24) · 5 ms |
-| NSTableView, cell-based | 27% (22–29) · 4 ms | 14% (6–17) · 4 ms |
-| NSCollectionView | 21% (17–21) · 4 ms | 14% (13–14) · 5 ms |
-| SwiftUI Table | 86% (85–87) · 13 ms | 100% · 608 ms |
-| SwiftUI Table, tuned | 59% (58–59) · 8 ms | 100% (97–100) · 106 ms |
+| Gingham | 14% · 4 ms | 7% · 4 ms |
+| NSTableView | 83% (82–83) · 12 ms | 93% (92–94) · 28 ms |
+| NSTableView, tuned | 20% (18–22) · 4 ms | 22% (22–23) · 4 ms |
+| NSTableView, cell-based | 29% (25–30) · 4 ms | 17% · 5 ms |
+| NSCollectionView | 21% (20–21) · 4 ms | 15% (14–15) · 4 ms |
+| SwiftUI Table | 85% (81–86) · 14 ms | 100% · 951 ms |
+| SwiftUI Table, tuned | 57% (56–58) · 8 ms | 100% (99–100) · 91 ms |
+| SwiftUI Table, slots | 22% (20–22) · 4 ms | 96% (90–98) · 89 ms |
 <!-- /table -->
 
-The process's CPU tells another part: on the tickers Gingham's was 46% (median of the three runs)
-against 40–43% for the tuned AppKit engines, whose main threads were busier
-([the full table](results/2026-11-24-0906.md)).
+The cost tells another part: on the tickers Gingham's process CPU was the lowest of the engines
+that keep up (33% against 36–41%, medians of the three runs), but the Mac drew more power with it
+than with the tuned NSTableView, NSCollectionView and the slot-based SwiftUI Table (0.41 W against
+0.33–0.37 W; the cell-based table 0.68 W), the GPU's drawing included; on the order books it drew
+the least (0.12 W against 0.19–0.31 W) ([the full table](results/2026-11-26-0025.md)).
 
 ### iPhone
 
@@ -921,23 +1106,36 @@ second, 111.1 frames a second.
 
 From the same results:
 
+- **The cell-based NSTableView keeps up in the default window**: it applies 120 updates a second in
+  all four live scenarios there, as Gingham does, at a higher cost (main thread 37–80% busy against
+  24–34%, the Mac's power 1.11–3.73 W against 0.71–1.22 W). At 2040 × 1080 it applies 118 on the
+  live trades and 45–80 on the others; at an equal 30 updates a second it holds the rate everywhere
+  measured, at 0.53–3.40 W against Gingham's 0.24–0.96 W.
+- **A quiet table costs Gingham more than the tuned AppKit tables**: 5% of the main thread, 9% CPU
+  and 0.11 W, against their 2%, 4% and 0.03–0.04 W.
+- **Scrolling a static table takes Gingham's main thread more than the cell-based table's**: 57%
+  against 40%, for 110 and 108 frames with new data a second; the Mac draws less power with Gingham
+  (0.57 W against 1.31 W).
+- **Power in the 3840 × 2160-point table**: the Mac draws more with Gingham than with the AppKit
+  tables on the wide trades and the trade feed (4.62 and 7.27 W, against 3.64–4.95 W), presenting
+  120 frames a second against their 2–21 updates. On the Binance tickers it draws more with Gingham
+  than with the tuned NSTableView, NSCollectionView and the slot-based SwiftUI Table (0.41 W against
+  0.33–0.37 W).
+- **The GPU**: Gingham's table is drawn by the GPU, so more of the Mac's power is the GPU's:
+  0.35–0.39 W in the default window's live scenarios, 0.94–1.17 W at 2040 × 1080 and 2.60–4.38 W
+  at 3840 × 2160, against 0.02–0.12 W for the view-based tables (the cell-based one 0.20–1.67 W);
+  in those scenarios its CPU's part is the smallest of all engines.
 - **Memory**: Gingham's footprint is larger than the view-based NSTableViews' and NSCollectionView's
-  on the trades and the order book at every size (94–145 MB against 62–108 at 1000 × 640, 537–560
-  against 152–498 at 3840 × 2160), and somewhat larger on the trade feed (544 against 501–531 MB,
-  956 against 746–869). The cell-based NSTableView takes the most at the large sizes (up to 1.4 GB).
-- **CPU off the main thread**: on the Binance tickers Gingham's process CPU is the highest of the
-  engines that keep up (46% against 40–43%) while its main thread is the least busy; on the
-  3840 × 2160 trade feed its process uses 114% of a core and its main thread is 80% busy.
-- **The GPU**: Gingham's table is drawn by the GPU, and its GPU time (its own and the window
-  server's) is the largest of all engines in the published sets' synthetic scenarios but one (the
-  cell-based table's was higher on the 4K display's order book), about 3 to 150 times the view-based tables'.
-  GPU time isn't a cost (How it's measured); what it costs in power comes from the next session.
-- **The first sort's longest stall**: 17 ms by pair, against the cell-based table's 8 ms.
+  on the trades and the order book in the default window (94–145 MB against 62–113) and at
+  3840 × 2160 (525–587 against 153–499), on the live trades and the order book at 2040 × 1080 (176
+  and 228 against 94–134), on the trade feed at 3840 × 2160 (944 against 757–869 MB) and on the
+  quiet table (78 MB against the AppKit tables' 33–48). The cell-based NSTableView and the
+  slot-based SwiftUI Table take the most at the large sizes (up to 1.4 and 1.9 GB).
+- **The first sort's longest stall**: 13–17 ms, against the cell-based table's 8–9 ms.
 - **The iPhone**: well-written UIKit tables and SwiftUI's List keep up too, some with fewer
   hitches than Gingham in these recordings (UICollectionView typical 0–2.1 ms a second against
-  Gingham's 0–6.2, one recording each), and with the same process CPU at 1,000,000 rows.
-- **Quiet tables and plain scrolling**, where every engine should keep up, are measured from the
-  next session (`quiet-table`, `scroll`): there the question is only what each costs.
+  Gingham's 0–6.2, one recording each, Gingham 1.1.3), and with the same process CPU at 1,000,000
+  rows.
 
 What it doesn't do: Gingham's cells are values it draws (text and numbers here); an NSTableView
 cell can be any view (controls, editors), a Gingham cell can't. Not measured here: variable row
