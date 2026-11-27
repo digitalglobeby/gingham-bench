@@ -636,8 +636,26 @@ JSON lines. Two of Gingham's earlier 3840 × 2160 sets (2026-11-24-0229 and 1124
 fixed order of engines (Gingham first in each round, right after the tuned SwiftUI Table of the
 round before) with a 1-second pause and no settling.
 
-**Not in these tables yet**: several sets of one measurement (each table is one night's, and at
-3840 × 2160 Gingham's numbers moved from set to set before, below); the 4K display with the
+**A second night**, 2026-11-27, measured every cell again with the same Gingham 1.2.0 and the
+bench's commit 199db0c (its measuring code is 8301478's: the commits between changed the window
+mode, the iPhone app and the scripts): [2026-11-27-0100](results/2026-11-27-0100.md),
+[0346](results/2026-11-27-0346.md), [0447](results/2026-11-27-0447.md),
+[0541](results/2026-11-27-0541.md), [0619](results/2026-11-27-0619.md),
+[0659](results/2026-11-27-0659.md) and Binance's reruns after network failures,
+[0738](results/2026-11-27-0738.md) (the log:
+[`results/session-2026-11-27-0100.log`](results/session-2026-11-27-0100.log)). The tables above
+keep the first night's. Of the 1,127 medians both nights have, 1,033 (92%) are within 5% of each
+other or within a small amount (2 updates a second, 3 points of the main thread, 0.15 W, 3 ms,
+15 MB, 0.03 s of a sort), and 1,089 (97%) within 10%. The order book at 2040 × 1080: Gingham 120
+frames a second, 36% and 1.8 W both nights; the cell-based NSTableView 80 and 79 updates a second,
+95% and 99%, 4.6 and 4.5 W; its trade feed 45 and 40. The larger differences are Binance's live
+market, sorts of a few hundredths of a second, the data age of a stuck SwiftUI Table, the
+cell-based tables' memory, the screen pass at 3840 × 2160 and data ages of a few milliseconds at
+the equal rates. One run was invalid (the quiet table's typical NSTableView: the window was
+covered); its cell's median is of the other two runs.
+
+**Not in these tables yet**: several sets combined into one table (each table is one night's; the
+second night above agrees with it); the 4K display with the
 engines of 2026-11-26 and the Mac's power; the iPhone with Gingham 1.2.0 and three recordings an
 engine.
 
