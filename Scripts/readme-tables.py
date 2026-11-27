@@ -364,11 +364,10 @@ QUIET_AND_SCROLL = DEFAULT                        # step 1's quiet-table and scr
 # Gingham alone at 3840 × 2160 in every set measured at that size on the built-in display.
 MACBOOK_4K_HISTORY = ["2026-11-24-0229.jsonl", "2026-11-24-1124.jsonl", "2026-11-24-1215.jsonl", "2026-11-24-1456.jsonl",
                       "2026-11-25-0100.jsonl"] + MACBOOK_4K
-# Older: the LG UltraFine 4K at 60 Hz, Gingham 1.1.3 and the engines of 2026-11-24 (before the
-# competitors' hand-written numbers and the cell-based table's kept text; no slot-based SwiftUI Table).
-DISPLAY_4K_FILL = ["2026-11-24-1258.jsonl"]
-DISPLAY_4K = ["2026-11-24-1345.jsonl"]
-DISPLAY_4K_CELLS_LIVE = ["2026-11-24-1648.jsonl"]
+# The LG UltraFine 4K at 60 Hz (`Scripts/next-session.sh 4k ULTRAFINE`, 2026-11-27): Gingham 1.2.0, bench
+# commit 83d280d, the Mac's power recorded. A window filling the display's visible area, then 3840 × 2160.
+DISPLAY_4K_FILL = ["2026-11-27-1035.jsonl"]
+DISPLAY_4K = ["2026-11-27-1128.jsonl"]
 
 QUIET = [("quiet-table", "Quiet table: 5,000 rows, 10 changes/s"), ("scroll", "Scrolling 100,000 rows")]
 
@@ -389,7 +388,9 @@ TABLES = {
     "quiet-scroll": lambda: updates_table(QUIET_AND_SCROLL, scenarios=QUIET),
     "quiet-scroll-cost": lambda: cost_table(QUIET_AND_SCROLL, scenarios=QUIET),
     "display-4k-fill": lambda: updates_table(DISPLAY_4K_FILL),
-    "display-4k": lambda: updates_table(DISPLAY_4K, overrides={("nstable-cells", "live-trades"): DISPLAY_4K_CELLS_LIVE}),
+    "display-4k-fill-cost": lambda: cost_table(DISPLAY_4K_FILL),
+    "display-4k": lambda: updates_table(DISPLAY_4K),
+    "display-4k-cost": lambda: cost_table(DISPLAY_4K),
     "sorts": lambda: sort_table(DEFAULT),
     "binance": lambda: binance_table(DEFAULT),
     "sources": lambda: sources_table([("Default window, quiet table, scrolling, sorts, Binance", DEFAULT),
@@ -399,7 +400,7 @@ TABLES = {
                                       ("60 updates a second, 2040 × 1080", EQUAL_RATE_60_LARGE),
                                       ("3840 × 2160, Gingham's earlier sets", MACBOOK_4K_HISTORY[:-1]),
                                       ("4K display, filled", DISPLAY_4K_FILL),
-                                      ("4K display, 3840 × 2160", DISPLAY_4K + DISPLAY_4K_CELLS_LIVE)]),
+                                      ("4K display, 3840 × 2160", DISPLAY_4K)]),
     "ios-hitches": lambda: ios_hitches_table("2026-11-26-113905"),
     "ios-meter": lambda: ios_meter_table([("100,000 rows, 1,000 changes/s", "ios-100k-2026-11-26-111104.json"),
                                           ("1,000,000 rows, 10,000 changes/s", "ios-1m-2026-11-26-111104.json")]),
