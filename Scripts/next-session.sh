@@ -10,9 +10,9 @@
 #                                           sets of a step are a round apart (here about 2 hours); the README's
 #                                           tables combine them (Scripts/readme-tables.py: the median of the
 #                                           sets' medians, with the range across the sets)
-#   Scripts/next-session.sh 4k NAME WxH     later, on its own: the 4K monitor (60 Hz), NAME a part of its
-#                                           name, WxH its "looks like" size less about 140 × 140 points
-#                                           (2560 × 1440 → 2420x1300); then 3840x2160 on it (about 1 h 45 min)
+#   Scripts/next-session.sh 4k NAME [WxH]   later, on its own: the 4K monitor (60 Hz), NAME a part of its
+#                                           name; a window filling its visible area (or WxH), then 3840x2160
+#                                           on it (about 1 h 45 min)
 #
 # Before: a quiet Mac on power, Low Power Mode off, other apps closed, nothing building, indexing or
 # syncing; the built-in display at 120 Hz in the mode of the published results (2056 × 1329 points);
@@ -214,8 +214,8 @@ check_disk
 build_signed || build_signed || { say "✗ the Release build failed (build/session-build.log)"; exit 1 }
 
 if [[ "$1" == 4k ]]; then
-  [[ -n "$2" && -n "$3" ]] || { say "usage: Scripts/next-session.sh 4k NAME WxH"; exit 64 }
-  run --scenario $LIVE --screen "$2" --window "$3"
+  [[ -n "$2" ]] || { say "usage: Scripts/next-session.sh 4k NAME [WxH]"; exit 64 }
+  run --scenario $LIVE --screen "$2" --window "${3:-fill}"
   run --scenario $LIVE --screen "$2" --window 3840x2160
 else
   SETS=1

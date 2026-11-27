@@ -24,7 +24,8 @@
 //    --binance-domain D        binance.com (or binance.us)
 //    --load-timeout N          seconds an engine may take to show its rows (30)
 //    --window WxH              the window's content size (1000x640); larger than the screen, e.g. 3840x2160 on a
-//                              MacBook, it keeps its size (top left on the screen's), and the table lays out all of it
+//                              MacBook, it keeps its size (top left on the screen's), and the table lays out all of it;
+//                              `fill`: the screen's whole visible area (below the menu bar, beside the Dock)
 //    --screen NAME             the display to open on (a part of its name, e.g. "LG"); default: the one with the
 //                              highest refresh rate
 //    --gingham-extras          Gingham also highlights changes and shows a summary row
@@ -98,6 +99,7 @@ struct Options {
     var isMeasuring: Bool { !scenarios.isEmpty }
 
     static func parse(_ arguments: [String]) throws -> Options {
+        var windowFills = false
         var options = Options()
         var index = 1
         func value(_ name: String) throws -> String {
@@ -144,9 +146,14 @@ struct Options {
             case "--binance-domain": options.binanceDomain = try value(argument)
             case "--load-timeout": options.loadTimeout = try number(argument)
             case "--window":
-                let parts = try value(argument).split(separator: "x").compactMap { Double($0) }
-                guard parts.count == 2 else { throw ScenarioError("--window WxH") }
-                options.windowSize = NSSize(width: parts[0], height: parts[1])
+                let text = try value(argument)
+                if text == "fill" {
+                    windowFills = true
+                } else {
+                    let parts = text.split(separator: "x").compactMap { Double($0) }
+                    guard parts.count == 2 else { throw ScenarioError("--window WxH or fill") }
+                    options.windowSize = NSSize(width: parts[0], height: parts[1])
+                }
                 options.windowGiven = true
             case "--gingham-extras": options.ginghamExtras = true
             case "--swiftui-diff-moves": options.swiftUIDiffsMoves = true
@@ -180,6 +187,10 @@ struct Options {
             }
             index += 1
         }
+        // `--window fill`: the table as large as the screen's visible area leaves it (below the menu
+        // bar, beside the Dock, less the window's title bar and the bench's bar). The measuring runs
+        // get the size it comes to, so their results say it.
+        if windowFills { options.windowSize = BenchWindow.fillingSize(screenName: options.screenName) }
         return options
     }
 

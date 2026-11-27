@@ -213,6 +213,18 @@ final class BenchWindow {
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     }
 
+    /// The table's size for `--window fill`: the display's visible area (the one `--screen` names,
+    /// or the one with the most refreshes a second) less the window's title bar and the bar.
+    static func fillingSize(screenName: String?) -> NSSize {
+        let named = screenName.flatMap { name in NSScreen.screens.first { $0.localizedName.localizedCaseInsensitiveContains(name) } }
+        guard let screen = named ?? NSScreen.screens.max(by: { $0.maximumFramesPerSecond < $1.maximumFramesPerSecond }) else {
+            return NSSize(width: 1000, height: 640)
+        }
+        let area = screen.visibleFrame
+        let titleBar = NSWindow.frameRect(forContentRect: .zero, styleMask: [.titled]).height
+        return NSSize(width: area.width.rounded(.down), height: (area.height - titleBar - 80).rounded(.down))
+    }
+
     func show() {
         window.orderFrontRegardless()
         window.makeKeyAndOrderFront(nil)
