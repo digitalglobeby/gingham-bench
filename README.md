@@ -655,9 +655,8 @@ the equal rates. One run was invalid (the quiet table's typical NSTableView: the
 covered); its cell's median is of the other two runs.
 
 **Not in these tables yet**: several sets combined into one table (each table is one night's; the
-second night above agrees with it); the 4K display with the
-engines of 2026-11-26 and the Mac's power; the iPhone with Gingham 1.2.0 and three recordings an
-engine.
+second night above agrees with it); the 4K display with the engines of 2026-11-26 and the Mac's
+power.
 
 What changed since the sets of 2026-11-24 and 25 (Gingham 1.1.3 and 1.1.4, still in `results/`):
 the competitors' hand-written numbers and the cell-based table's kept text (the tuned NSTableView,
