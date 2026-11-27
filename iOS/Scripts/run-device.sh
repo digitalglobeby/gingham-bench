@@ -31,12 +31,13 @@
 # Low Power Mode off, no keyboard attached, at room temperature, other apps
 # closed; don't touch it while it runs. --app takes about 20 minutes, --ui-tests
 # about 25, --hitches about 30. Needs Xcode 26 or later, and automatic signing
-# (the project's team is CX4XTQ23ND; DEVELOPMENT_TEAM=... to use yours).
+# (the project's team is CX4XTQ23ND; DEVELOPMENT_TEAM=... to use yours, with
+# PRODUCT_BUNDLE_IDENTIFIER=... of your own: a bundle id belongs to one team).
 
 set -euo pipefail
 
 DEVICE="${GINGHAM_BENCH_DEVICE:-}"
-BUNDLE_ID="by.digitalglobe.gingham-bench"
+BUNDLE_ID="${PRODUCT_BUNDLE_IDENTIFIER:-by.digitalglobe.gingham-bench}"
 BUILD=1
 RUN_APP=0
 RUN_UI=0
@@ -97,6 +98,7 @@ echo "Device: $DEVICE ($DEVICE_TYPE)"
 COMMIT="$("$IOS_DIR/../Scripts/bench-commit.sh")"
 SETTINGS=(BENCH_COMMIT="$COMMIT")
 [[ -n "${DEVELOPMENT_TEAM:-}" ]] && SETTINGS+=(DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM")
+[[ -n "${PRODUCT_BUNDLE_IDENTIFIER:-}" ]] && SETTINGS+=(PRODUCT_BUNDLE_IDENTIFIER="$PRODUCT_BUNDLE_IDENTIFIER")
 
 if [[ $BUILD -eq 1 && ( $RUN_APP -eq 1 || $RUN_HITCHES -eq 1 ) ]]; then
     echo "Building (Release, commit $COMMIT)…"
